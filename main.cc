@@ -1,5 +1,75 @@
 #include <iostream>
+#include <stack>
 #include <string>
+#include <vector>
+
+class Parser {
+  std::vector<std::string> commands;
+  std::string raw_input;
+
+  enum class Operator {
+    PLUS,
+    MINUS,
+    MUL,
+    DIV,
+    NONE,
+  };
+
+public:
+  Parser() = default;
+
+  Parser &operator=(const Parser &) = delete;
+
+  Parser &instance();
+
+  bool parse();
+};
+
+static Parser *parser = nullptr;
+
+Parser &Parser::instance() {
+  if (parser == nullptr) {
+    parser = new Parser();
+  }
+
+  return *parser;
+}
+
+bool Parser::parse() {
+  if (raw_input.size() == 0)
+    return false;
+
+  std::stack<char> pool;
+  int val = 0;
+  Operator op = Operator::NONE;
+
+  for (auto achar : raw_input) {
+    switch (achar) {
+    case '+': {
+      op = Operator::PLUS;
+      pool.push(val);
+      val = 0;
+      break;
+    }
+    case '-': {
+      op = Operator::MINUS;
+      pool.push(val);
+      val = 0;
+      break;
+    }
+    default: {
+      if (std::isdigit(achar))
+        val = val * 10 + achar - '0';
+      else if (std::isalpha(achar)) {
+        std::cout << "Unsupported yet." << std::endl;
+        ::abort();
+      }
+      break;
+    }
+    }
+  }
+  return true;
+}
 
 int main(int argc, char **argv) {
   if (argc != 2) {
