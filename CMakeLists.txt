@@ -6,7 +6,7 @@ project(rvcc)
 
 enable_testing()
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -g -fno-common")
+set(CMAKE_CXX_FLAGS "-std=c++2a -g -fno-common")
 
 add_executable(rvcc main.cc)
 

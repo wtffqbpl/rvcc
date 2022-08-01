@@ -1,13 +1,13 @@
 #include <iostream>
+#include <memory>
 #include <stack>
 #include <string>
 #include <vector>
 
-class Parser {
-  std::vector<std::string> commands;
-  std::string raw_input;
-
-  enum class Operator {
+class Operator {
+public:
+  Operator();
+  enum class Types {
     PLUS,
     MINUS,
     MUL,
@@ -15,14 +15,61 @@ class Parser {
     NONE,
   };
 
+  void dump() {
+  }
+
+private:
+};
+
+template<typename T>
+class Value {
+  T val;
+
+public:
+  void dump() {
+#ifndef NDEBUG
+    print(std::cout);
+#endif
+  }
+
+private:
+  void print(std::ostream &os) {
+    os << "VAL: " << val;
+  }
+};
+
+template <typename T>
+class Instruction {
+  std::unique_ptr<Operator> op;
+  std::unique_ptr<Value<T>> val1;
+  std::unique_ptr<Value<T>> val2;
+
+  void dump() {
+#ifndef NDEBUG
+    this->print(std::cout);
+#endif
+  }
+
+private:
+  void print(std::ostream &os) {
+    val1->dump();
+    op->dump();
+    val2->dump();
+  }
+};
+
+class Parser {
+  std::vector<std::string> commands;
+  std::string raw_input;
+
 public:
   Parser() = default;
 
   Parser &operator=(const Parser &) = delete;
 
-  Parser &instance();
+  static Parser &instance();
 
-  bool parse();
+  bool parse(std::string &inputs);
 };
 
 static Parser *parser = nullptr;
@@ -35,26 +82,44 @@ Parser &Parser::instance() {
   return *parser;
 }
 
-bool Parser::parse() {
-  if (raw_input.size() == 0)
+bool Parser::parse(std::string &inputs) {
+  if (inputs.size() == 0)
     return false;
 
-  std::stack<char> pool;
-  int val = 0;
-  Operator op = Operator::NONE;
+#ifndef NDEBUG
+  std::cout << inputs << std::endl;
+#endif
 
-  for (auto achar : raw_input) {
+  std::stack<Operator::Types> opPool;
+  std::stack<int> valPool;
+  int val = 0;
+  Operator::Types op = Operator::Types::NONE;
+
+  auto recordVal = [&](Operator::Types type) {
+    opPool.push(type);
+    valPool.push(val);
+    val = 0;
+  };
+
+  for (auto achar : inputs) {
+    if (std::isspace(achar))
+      continue;
+
     switch (achar) {
     case '+': {
-      op = Operator::PLUS;
-      pool.push(val);
-      val = 0;
+      recordVal(Operator::Types::PLUS);
       break;
     }
     case '-': {
-      op = Operator::MINUS;
-      pool.push(val);
-      val = 0;
+      recordVal(Operator::Types::MINUS);
+      break;
+    }
+    case '*': {
+      recordVal(Operator::Types::MUL);
+      break;
+    }
+    case '/': {
+      recordVal(Operator::Types::DIV);
       break;
     }
     default: {
@@ -79,15 +144,66 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // 声明一个全局main段，同时也是程序入口段
+  // header
   std::cout << ".globl main\n";
-
-  // main段标签
   std::cout << "main:\n";
-  // li 为addi指令的别名，加载一个立即数到寄存器中
-  // 传入程序的参数为str类型，因为需要转换为int类型
-  // atoi 为 ascii to integer
-  std::cout << "  li a0, " << atoi(argv[1]) << "\n";
+
+
+  std::string delims{" +-"};
+  std::string input_val = std::string{argv[1]};
+  std::string::size_type begIdx, endIdx;
+  std::string::size_type size = input_val.size();
+
+  auto isNumber = [=](std::string const &input,
+          const std::string::size_type start,
+          const std::string::size_type end)-> bool {
+    auto it = std::find_if(input.begin() + start, input.begin() + end,
+                           [=](char const &c) -> bool {
+      return !std::isdigit(c);
+    });
+    return !input.empty() && it == (input.begin() + end) && std::isdigit(input[end - 1]);
+  };
+
+  // 这里我们将算式分解为 num(op num) (op num) ...  的形式
+  endIdx = input_val.find_first_of(delims);
+  if (!isNumber(input_val, 0, endIdx == std::string::npos ? size : endIdx)) {
+    std::cerr << "This is not a number: " << input_val.substr(0, endIdx) << std::endl;
+    std::exit(1);
+  }
+
+    std::cout << "  li a0, "
+              << input_val.substr(0, endIdx == std::string::npos ? size : endIdx)
+              << std::endl;
+
+  begIdx = endIdx;
+  while (begIdx != std::string::npos) {
+    if (input_val[begIdx] == '+' || input_val[begIdx] == '-') {
+      bool negative_flag = input_val[begIdx] == '-';
+      ++begIdx;
+
+      bool endflag = false;
+      endIdx = input_val.find_first_of(delims, begIdx);
+      if (endIdx == std::string::npos) {
+        endflag = true;
+        endIdx = size;
+      }
+
+      if (!isNumber(input_val, begIdx, endIdx)) {
+        std::cerr << "This is not a number: " << input_val.substr(begIdx, endIdx) << std::endl;
+        std::exit(1);
+      }
+
+      std::cout << "  addi a0, a0, "
+                << (negative_flag ? "-" : "")
+                << input_val.substr(begIdx, endIdx - begIdx) << std::endl;
+
+      begIdx =  endflag ? std::string::npos : endIdx;
+      continue;
+    }
+
+    std::cerr << "  Unsupported character: " << input_val[begIdx] << std::endl;
+    std::exit(1);
+  }
 
   // ret为jalr x0, x1, 0 别名指令，用于返回子程序
   std::cout << "  ret\n";
