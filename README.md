@@ -4,6 +4,10 @@ RISC-V compiler
 
 This is a RISC-V compiler according to [chibicc](https://github.com/rui314/chibicc).
 
+[1] Return specified value assemble code.
+
+[2] 
+
 ## Reference tutorial
 
 * [Video](https://space.bilibili.com/296494084)
