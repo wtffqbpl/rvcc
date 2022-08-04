@@ -133,6 +133,7 @@ public:
     ND_MUL,   // *
     ND_DIV,   // /
     ND_NUM,   // integer
+    ND_NEG,   // - (unary operator)
   };
 
 private:
@@ -151,6 +152,7 @@ public:
   explicit Node(Node::NKind Kind_, int val_, Node *LHS_, Node *RHS_)
           : Kind(Kind_), val(val_), LHS(LHS_), RHS(RHS_) {}
 
+  static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
 
@@ -163,6 +165,10 @@ private:
 Node *Node::newNode(Node::NKind Kind, int Val, Node *LHS, Node *RHS) {
   Node *Nd = new Node{Kind, Val, LHS, RHS};
   return Nd;
+}
+
+Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
+  return newNode(Kind, 0, Nd);
 }
 
 // create a new binary tree node.
@@ -182,6 +188,7 @@ public:
 
   static Node *createExpr(Token **Rest, Token *Tok);
   static Node *createMul(Token **Rest, Token *Tok);
+  static Node *createUnary(Token **Rest, Token *Tok);
   static Node *createPrimary(Token **Rest, Token *Tok);
 
 private:
@@ -192,6 +199,7 @@ private:
 //    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
 //    expr = mul ("+" mul | "-" mul)*
 //    mul = primary ("*" primary | "/" primary)
+//    unary = ("+" | "-") unary | primary
 //    primary = "(" expr ")" | num
 
 // parse plus/minus operators.
@@ -224,20 +232,20 @@ Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
 // parse multiply/division.
 //    mul = primary ("*" primary | "/" primary)*
 Node *ASTContext::createMul(Token **Rest, Token *Tok) {
-  // primary
-  Node *Nd = createPrimary(&Tok, Tok);
+  // unary
+  Node *Nd = createUnary(&Tok, Tok);
 
-  // ("*" primary | "/" primary)*
+  // ("*" unary | "/" unary)*
   while (Tok && Tok->Kind != Token::TKind::TK_EOF) {
-    // "*" primary
+    // "*" unary
     if (equal(Tok, "*")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd, createPrimary(&Tok, Tok->Next));
+      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd, createUnary(&Tok, Tok->Next));
       continue;
     }
 
-    // "/" primary
+    // "/" unary
     if (equal(Tok, "/")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd, createPrimary(&Tok, Tok->Next));
+      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd, createUnary(&Tok, Tok->Next));
       continue;
     }
 
@@ -246,6 +254,21 @@ Node *ASTContext::createMul(Token **Rest, Token *Tok) {
 
   *Rest = Tok;
   return Nd;
+}
+
+// parse unary node.
+//    unary = ("+" | "-") unary | primary
+Node *ASTContext::createUnary(Token **Rest, Token *Tok) {
+  // "+" unary
+  if (equal(Tok, "+"))
+    return createUnary(Rest, Tok->Next);
+
+  // "-" unary
+  if (equal(Tok, "-"))
+    return Node::createUnaryNode(Node::NKind::ND_NEG, createUnary(Rest, Tok->Next));
+
+  // primary
+  return createPrimary(Rest, Tok);
 }
 
 // parse quotes and number.
@@ -333,12 +356,22 @@ void CodeGenContext::genEpilogue() {
 }
 
 void CodeGenContext::genExpr(const Node &Nd) {
-  // load number to a0
-  if (Nd.getKind() == Node::NKind::ND_NUM) {
-    std::cout << "  li a0, " << Nd.getVal() << std::endl;
-    return;
+  // generate each leaf node.
+  switch (Nd.getKind()) {
+    case Node::NKind::ND_NUM:
+      // load number to a0
+      std::cout << " li a0, " << Nd.getVal() << std::endl;
+      return;
+    case Node::NKind::ND_NEG:
+      genExpr(Nd.getLHS());
+      // neg a0, a0 是 sub a0, x0 的别名，即 a0 = 0 - a0
+      std::cout << "  neg a0, a0" << std::endl;
+      return;
+    default:
+      break;
   }
 
+  // **先递归到最右的节点, 这种保证了表达式在计算的时候，从右往左来计算。**
   // recursive right node.
   genExpr(Nd.getRHS());
   // push results to stack.
