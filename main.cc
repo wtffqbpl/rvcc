@@ -5,27 +5,6 @@
 #include <string>
 #include <cassert>
 
-
-struct Token {
-  enum class TKind {
-    TK_PUNCT, // operator. + -
-    TK_NUM,   // number
-    TK_EOF,   // end of file
-  };
-
-  TKind Kind;                 // kind
-  Token *Next;                // next token
-  int Val;                    // value
-  std::string::iterator Loc;  // location
-  size_t Len;                 // length
-
-  Token() = default;
-
-  Token(TKind Kind_, Token *Next_, int Val_, std::string::iterator Loc_,
-        size_t Len_)
-    : Kind(Kind_), Next(Next_), Val(Val_), Loc(Loc_), Len(Len_) {}
-};
-
 static void error(std::string StrFmt, ...) {
   // define a va_list variable.
   va_list VA;
@@ -42,21 +21,64 @@ static void error(std::string StrFmt, ...) {
   std::exit(1);
 }
 
-static int getNumber(Token &Tok) {
-  if (Tok.Kind != Token::TKind::TK_NUM)
-    error("expect a number.");
-  return Tok.Val;
+class Token {
+public:
+  enum class TKind {
+    TK_PUNCT, // operator. + -
+    TK_NUM,   // number
+    TK_EOF,   // end of file
+  };
+
+  Token() = default;
+
+  Token(TKind Kind_, Token *Next_, int Val_, std::string::iterator Loc_,
+        size_t Len_)
+    : Kind(Kind_), Next(Next_), Val(Val_), Loc(Loc_), Len(Len_) {}
+
+  static Token &instance();
+  Token *tokenize(std::string &input);
+
+private:
+  Token *createToken(Token::TKind kind,
+                            std::string::iterator Start,
+                            std::string::iterator End);
+  std::string::iterator getNumberPos(std::string &input,
+                                            std::string::iterator Start);
+
+public:
+  [[nodiscard]] TKind getKind() const { return Kind; }
+  [[nodiscard]] Token *next() const {return Next; }
+  [[nodiscard]] int getVal() const { return Val; }
+  [[nodiscard]] std::string::iterator getLocation() const { return Loc; }
+  [[nodiscard]] std::string::size_type getLength() const { return Len; }
+
+private:
+  TKind Kind;                 // kind
+  Token *Next;                // next token
+  int Val;                    // value
+  std::string::iterator Loc;  // location
+  std::string::size_type Len; // length
+};
+
+static Token *TokenHdl = nullptr;
+
+Token &Token::instance() {
+  if (TokenHdl == nullptr) {
+    TokenHdl = new Token();
+  }
+  return *TokenHdl;
 }
 
-static Token *newToken(Token::TKind Kind,
-                       std::string::iterator Start,
-                       std::string::iterator End) {
-  auto *Tok = new Token{Kind, nullptr, 0, Start,
+Token *Token::createToken(Token::TKind kind,
+                          std::string::iterator Start,
+                          std::string::iterator End) {
+  auto *Tok = new Token{kind, nullptr, 0, Start,
                         static_cast<size_t>(std::distance(Start, End))};
   return Tok;
 }
 
-std::string::iterator getNumberPos(std::string &input, std::string::iterator Start) {
+std::string::iterator Token::getNumberPos(std::string &input,
+                                          std::string::iterator Start) {
   auto End = input.end();
   for (; Start != End; ++Start) {
     char achar = *Start;
@@ -67,7 +89,7 @@ std::string::iterator getNumberPos(std::string &input, std::string::iterator Sta
 }
 
 // EOF parser.
-static Token *tokenize(std::string &input) {
+Token *Token::tokenize(std::string &input) {
   Token Head{};
   Token *Cur = &Head;
   auto It = input.begin();
@@ -83,7 +105,7 @@ static Token *tokenize(std::string &input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      Cur->Next = newToken(Token::TKind::TK_NUM, It, It);
+      Cur->Next = createToken(Token::TKind::TK_NUM, It, It);
       Cur = Cur->Next;
 
       auto NumEndPos = getNumberPos(input, It);
@@ -96,7 +118,7 @@ static Token *tokenize(std::string &input) {
 
     // parse operators.
     if (std::ispunct(achar)) {
-      Cur->Next = newToken(Token::TKind::TK_PUNCT, It, It + 1);
+      Cur->Next = createToken(Token::TKind::TK_PUNCT, It, It + 1);
       Cur = Cur->Next;
       ++It;
       continue;
@@ -107,21 +129,22 @@ static Token *tokenize(std::string &input) {
   }
 
   // Add EOF operator.
-  Cur->Next = newToken(Token::TKind::TK_EOF, It, It);
+  Cur->Next = createToken(Token::TKind::TK_EOF, It, It);
 
   return Head.Next;
 }
 
 static bool equal(Token *Tok, std::string Str) {
   // compare LHS and RHS, if S2
-  return std::equal(Tok->Loc, Tok->Loc + Tok->Len, Str.begin());
+  return std::equal(Tok->getLocation(), Tok->getLocation() + Tok->getLength(),
+                    Str.begin());
 }
 
 // skip specified string
 static Token *skip(Token *Tok, std::string Str) {
   if (!equal(Tok, Str))
     error("expect %s", Str.data());
-  return Tok->Next;
+  return Tok->next();
 }
 
 class Node {
@@ -209,16 +232,16 @@ Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
   Node *Nd = createMul(&Tok, Tok);
 
   // ("+" mul | "-" mul)*
-  while (Tok && Tok->Kind != Token::TKind::TK_EOF) {
+  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
     // "+" mul
     if (equal(Tok, "+")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd, createMul(&Tok, Tok->Next));
+      Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd, createMul(&Tok, Tok->next()));
       continue;
     }
 
     // "-" mul
     if (equal(Tok, "-")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Nd, createMul(&Tok, Tok->Next));
+      Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Nd, createMul(&Tok, Tok->next()));
       continue;
     }
 
@@ -236,16 +259,16 @@ Node *ASTContext::createMul(Token **Rest, Token *Tok) {
   Node *Nd = createUnary(&Tok, Tok);
 
   // ("*" unary | "/" unary)*
-  while (Tok && Tok->Kind != Token::TKind::TK_EOF) {
+  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
     // "*" unary
     if (equal(Tok, "*")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd, createUnary(&Tok, Tok->Next));
+      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd, createUnary(&Tok, Tok->next()));
       continue;
     }
 
     // "/" unary
     if (equal(Tok, "/")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd, createUnary(&Tok, Tok->Next));
+      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd, createUnary(&Tok, Tok->next()));
       continue;
     }
 
@@ -261,11 +284,11 @@ Node *ASTContext::createMul(Token **Rest, Token *Tok) {
 Node *ASTContext::createUnary(Token **Rest, Token *Tok) {
   // "+" unary
   if (equal(Tok, "+"))
-    return createUnary(Rest, Tok->Next);
+    return createUnary(Rest, Tok->next());
 
   // "-" unary
   if (equal(Tok, "-"))
-    return Node::createUnaryNode(Node::NKind::ND_NEG, createUnary(Rest, Tok->Next));
+    return Node::createUnaryNode(Node::NKind::ND_NEG, createUnary(Rest, Tok->next()));
 
   // primary
   return createPrimary(Rest, Tok);
@@ -276,15 +299,15 @@ Node *ASTContext::createUnary(Token **Rest, Token *Tok) {
 Node *ASTContext::createPrimary(Token **Rest, Token *Tok) {
   // "(" expr ")"
   if (equal(Tok, "(")) {
-    Node *Nd = createExpr(&Tok, Tok->Next);
+    Node *Nd = createExpr(&Tok, Tok->next());
     *Rest = skip(Tok, ")");
     return Nd;
   }
 
   // num
-  if (Tok->Kind == Token::TKind::TK_NUM) {
-    Node *Nd = Node::createNumNode(Tok->Val);
-    *Rest = Tok->Next;
+  if (Tok->getKind() == Token::TKind::TK_NUM) {
+    Node *Nd = Node::createNumNode(Tok->getVal());
+    *Rest = Tok->next();
     return Nd;
   }
 
@@ -360,7 +383,7 @@ void CodeGenContext::genExpr(const Node &Nd) {
   switch (Nd.getKind()) {
     case Node::NKind::ND_NUM:
       // load number to a0
-      std::cout << " li a0, " << Nd.getVal() << std::endl;
+      std::cout << "  li a0, " << Nd.getVal() << std::endl;
       return;
     case Node::NKind::ND_NEG:
       genExpr(Nd.getLHS());
@@ -422,10 +445,11 @@ int main(int argc, char **argv) {
   }
 
   std::string input(argv[1]);
-  auto *Tok = tokenize(input);
+  Token &TKHdl = Token::instance();
+  Token *Tok = TKHdl.tokenize(input);
   Node &Node = *ASTContext::createExpr(&Tok, Tok);
 
-  if (Tok->Kind != Token::TKind::TK_EOF)
+  if (Tok->getKind() != Token::TKind::TK_EOF)
     error("Extra token.");
 
   CodeGenContext CGCxt{Node};
