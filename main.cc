@@ -88,6 +88,15 @@ std::string::iterator Token::getNumberPos(std::string &input,
   return Start;
 }
 
+static size_t readPunct(std::string &input, std::string::size_type start) {
+  if (start + 1 >= input.size()) {
+    std::string punctStr = input.substr(start, 2);
+    if (punctStr == "==" || punctStr == "!=" || punctStr == "<=" || punctStr == ">=")
+      return 2;
+  }
+  return std::ispunct(input[start]) ? 1 : 0;
+}
+
 // EOF parser.
 Token *Token::tokenize(std::string &input) {
   Token Head{};
@@ -117,10 +126,13 @@ Token *Token::tokenize(std::string &input) {
     }
 
     // parse operators.
-    if (std::ispunct(achar)) {
-      Cur->Next = createToken(Token::TKind::TK_PUNCT, It, It + 1);
+    int PunctLen = readPunct(input, std::distance(input.begin(), It));
+    if (PunctLen) {
+      Cur->Next = createToken(Token::TKind::TK_PUNCT, It, It + PunctLen);
       Cur = Cur->Next;
       ++It;
+      // move string iterator PunctLen length.
+      It += PunctLen;
       continue;
     }
 
@@ -157,6 +169,10 @@ public:
     ND_DIV,   // /
     ND_NUM,   // integer
     ND_NEG,   // - (unary operator)
+    ND_EQ,    // ==
+    ND_NE,    // !=
+    ND_LT,    // <
+    ND_LE,    // <=
   };
 
 private:
@@ -209,7 +225,19 @@ class ASTContext {
 public:
   ASTContext() = default;
 
+// BNF:
+//    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
+//    expr = equality  // 相等性判断
+//    equality = relational ("==" relational | "!=" relational)*
+//    relational = add("<" add | "<=" add | ">" add | ">=" add)*
+//    add = mul ("+" mul | "-" mul)*
+//    mul = primary ("*" primary | "/" primary)
+//    unary = ("+" | "-") unary | primary
+//    primary = "(" expr ")" | num
   static Node *createExpr(Token **Rest, Token *Tok);
+  static Node *createEquality(Token **Rest, Token *Tok);
+  static Node *createRelational(Token **Rest, Token *Tok);
+  static Node *createAdd(Token **Rest, Token *Tok);
   static Node *createMul(Token **Rest, Token *Tok);
   static Node *createUnary(Token **Rest, Token *Tok);
   static Node *createPrimary(Token **Rest, Token *Tok);
@@ -218,22 +246,85 @@ private:
   static Token *CurTok;
 };
 
-// BNF:
-//    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
-//    expr = mul ("+" mul | "-" mul)*
-//    mul = primary ("*" primary | "/" primary)
-//    unary = ("+" | "-") unary | primary
-//    primary = "(" expr ")" | num
-
-// parse plus/minus operators.
-//  expr = mul("+" mul | "-" mul)*
+// parse expression.
+//  expr = equality
 Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
+  return createEquality(Rest, Tok);
+}
+
+// parse equality
+Node *ASTContext::createEquality(Token **Rest, Token *Tok) {
+  // relational
+  Node *Nd = createRelational(&Tok, Tok);
+
+  // ("==" relational | "!=" relational)*
+  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+    // "==" relational
+    if (equal(Tok, "==")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_EQ, Nd,
+                                  createRelational(&Tok, Tok->next()));
+      continue;
+    }
+
+    // "!=" relational
+    if (equal(Tok, "!=")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_NE, Nd,
+                                  createRelational(&Tok, Tok->next()));
+      continue;
+    }
+
+    break;
+  }
+
+  *Rest = Tok;
+  return Nd;
+}
+
+Node *ASTContext::createRelational(Token **Rest, Token *Tok) {
+  // add
+  Node *Nd = createAdd(&Tok, Tok);
+
+  // ("<" add | "<=" add | ">" add | ">=" add)*
+  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+    // "<" add
+    if (equal(Tok, "<")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LT, Nd, createAdd(&Tok, Tok->next()));
+      continue;
+    }
+
+    // "<=" add
+    if (equal(Tok, "<=")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LE, Nd, createAdd(&Tok, Tok->next()));
+      continue;
+    }
+
+    // ">" add
+    // X > Y is equivalent to Y < X
+    if (equal(Tok, ">")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LT, createAdd(&Tok, Tok->next()), Nd);
+      continue;
+    }
+
+    // ">=" add
+    // X >= Y is equivalent to Y <= X
+    if (equal(Tok, ">=")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LE, createAdd(&Tok, Tok->next()), Nd);
+      continue;
+    }
+
+    break;
+  }
+
+  *Rest = Tok;
+  return Nd;
+}
+
+Node *ASTContext::createAdd(Token **Rest, Token *Tok) {
   // mul
   Node *Nd = createMul(&Tok, Tok);
 
   // ("+" mul | "-" mul)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-    // "+" mul
     if (equal(Tok, "+")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd, createMul(&Tok, Tok->next()));
       continue;
@@ -417,6 +508,23 @@ void CodeGenContext::genExpr(const Node &Nd) {
     case Node::NKind::ND_DIV:
       std::cout << "  div a0, a0, a1" << std::endl;
       return;
+    case Node::NKind::ND_EQ:
+    case Node::NKind::ND_NE:
+      std::cout << "  xor a0, a0, a1" << std::endl;
+      if (Nd.getKind() == Node::NKind::ND_EQ) {
+        // a0 == a1
+        //    a0 = a0 ^ a1, sltiu a0, a0, 1
+        //    when result is 0 it will be set to 1, vice visa.
+        std::cout << "  snez a0, a0" << std::endl;
+      }
+      return;
+    case Node::NKind::ND_LT:
+      std::cout << "  slt a0, a0, a1" << std::endl;
+      return;
+    case Node::NKind::ND_LE:
+      std::cout << "  slt a0, a1, a0" << std::endl;
+      std::cout << "  xori a0, a0, 1" << std::endl;
+      return;
     default:
       break;
   }
@@ -424,17 +532,7 @@ void CodeGenContext::genExpr(const Node &Nd) {
 }
 
 // testcase:
-//    -2----3 = -1
-//            [-]
-//          /    \
-//        /       \
-//       [-]      [-]
-//        |        |
-//       [2]      [-]
-//                 |
-//                [-]
-//                 |
-//                [3]
+//    1 != 2
 
 int main(int argc, char **argv) {
   if (argc != 2) {
