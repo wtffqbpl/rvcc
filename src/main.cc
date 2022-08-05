@@ -89,7 +89,7 @@ std::string::iterator Token::getNumberPos(std::string &input,
 }
 
 static size_t readPunct(std::string &input, std::string::size_type start) {
-  if (start + 1 >= input.size()) {
+  if (start + 1 < input.size()) {
     std::string punctStr = input.substr(start, 2);
     if (punctStr == "==" || punctStr == "!=" || punctStr == "<=" || punctStr == ">=")
       return 2;
@@ -130,7 +130,6 @@ Token *Token::tokenize(std::string &input) {
     if (PunctLen) {
       Cur->Next = createToken(Token::TKind::TK_PUNCT, It, It + PunctLen);
       Cur = Cur->Next;
-      ++It;
       // move string iterator PunctLen length.
       It += PunctLen;
       continue;
