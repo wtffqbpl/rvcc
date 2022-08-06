@@ -224,6 +224,8 @@ class ASTContext {
 public:
   ASTContext() = default;
 
+  static ASTContext &instance();
+
 // BNF:
 //    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
 //    expr = equality  // 相等性判断
@@ -233,42 +235,63 @@ public:
 //    mul = primary ("*" primary | "/" primary)
 //    unary = ("+" | "-") unary | primary
 //    primary = "(" expr ")" | num
-  static Node *createExpr(Token **Rest, Token *Tok);
-  static Node *createEquality(Token **Rest, Token *Tok);
-  static Node *createRelational(Token **Rest, Token *Tok);
-  static Node *createAdd(Token **Rest, Token *Tok);
-  static Node *createMul(Token **Rest, Token *Tok);
-  static Node *createUnary(Token **Rest, Token *Tok);
-  static Node *createPrimary(Token **Rest, Token *Tok);
+  Node *create(Token *Tok);
+  Node *createImpl(Token **Rest, Token *Tok);
+  Node *createEqualityExpr(Token **Rest, Token *Tok);
+  Node *createRelationalExpr(Token **Rest, Token *Tok);
+  Node *createAddExpr(Token **Rest, Token *Tok);
+  Node *createMulExpr(Token **Rest, Token *Tok);
+  Node *createUnaryExpr(Token **Rest, Token *Tok);
+  Node *createPrimaryExpr(Token **Rest, Token *Tok);
+
+  friend class Node;
 
 private:
-  static Token *CurTok;
+  Token *CurTok;
 };
+
+static ASTContext *astContext = nullptr;
+
+ASTContext &ASTContext::instance() {
+  if (astContext == nullptr) {
+    astContext = new ASTContext();
+  }
+  return *astContext;
+}
+
+Node *ASTContext::create(Token *Tok) {
+  Node *node = createImpl(&Tok, Tok);
+
+  if (Tok->getKind() != Token::TKind::TK_EOF)
+    error("Extra token.");
+
+  return node;
+}
 
 // parse expression.
 //  expr = equality
-Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
-  return createEquality(Rest, Tok);
+Node *ASTContext::createImpl(Token **Rest, Token *Tok) {
+  return createEqualityExpr(Rest, Tok);
 }
 
 // parse equality
-Node *ASTContext::createEquality(Token **Rest, Token *Tok) {
+Node *ASTContext::createEqualityExpr(Token **Rest, Token *Tok) {
   // relational
-  Node *Nd = createRelational(&Tok, Tok);
+  Node *Nd = createRelationalExpr(&Tok, Tok);
 
   // ("==" relational | "!=" relational)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
     // "==" relational
     if (equal(Tok, "==")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_EQ, Nd,
-                                  createRelational(&Tok, Tok->next()));
+                                  createRelationalExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "!=" relational
     if (equal(Tok, "!=")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_NE, Nd,
-                                  createRelational(&Tok, Tok->next()));
+                                  createRelationalExpr(&Tok, Tok->next()));
       continue;
     }
 
@@ -279,35 +302,35 @@ Node *ASTContext::createEquality(Token **Rest, Token *Tok) {
   return Nd;
 }
 
-Node *ASTContext::createRelational(Token **Rest, Token *Tok) {
+Node *ASTContext::createRelationalExpr(Token **Rest, Token *Tok) {
   // add
-  Node *Nd = createAdd(&Tok, Tok);
+  Node *Nd = createAddExpr(&Tok, Tok);
 
   // ("<" add | "<=" add | ">" add | ">=" add)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
     // "<" add
     if (equal(Tok, "<")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LT, Nd, createAdd(&Tok, Tok->next()));
+      Nd = Node::createBinaryNode(Node::NKind::ND_LT, Nd, createAddExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "<=" add
     if (equal(Tok, "<=")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LE, Nd, createAdd(&Tok, Tok->next()));
+      Nd = Node::createBinaryNode(Node::NKind::ND_LE, Nd, createAddExpr(&Tok, Tok->next()));
       continue;
     }
 
     // ">" add
     // X > Y is equivalent to Y < X
     if (equal(Tok, ">")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LT, createAdd(&Tok, Tok->next()), Nd);
+      Nd = Node::createBinaryNode(Node::NKind::ND_LT, createAddExpr(&Tok, Tok->next()), Nd);
       continue;
     }
 
     // ">=" add
     // X >= Y is equivalent to Y <= X
     if (equal(Tok, ">=")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LE, createAdd(&Tok, Tok->next()), Nd);
+      Nd = Node::createBinaryNode(Node::NKind::ND_LE, createAddExpr(&Tok, Tok->next()), Nd);
       continue;
     }
 
@@ -318,20 +341,20 @@ Node *ASTContext::createRelational(Token **Rest, Token *Tok) {
   return Nd;
 }
 
-Node *ASTContext::createAdd(Token **Rest, Token *Tok) {
+Node *ASTContext::createAddExpr(Token **Rest, Token *Tok) {
   // mul
-  Node *Nd = createMul(&Tok, Tok);
+  Node *Nd = createMulExpr(&Tok, Tok);
 
   // ("+" mul | "-" mul)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
     if (equal(Tok, "+")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd, createMul(&Tok, Tok->next()));
+      Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd, createMulExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "-" mul
     if (equal(Tok, "-")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Nd, createMul(&Tok, Tok->next()));
+      Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Nd, createMulExpr(&Tok, Tok->next()));
       continue;
     }
 
@@ -344,21 +367,21 @@ Node *ASTContext::createAdd(Token **Rest, Token *Tok) {
 
 // parse multiply/division.
 //    mul = primary ("*" primary | "/" primary)*
-Node *ASTContext::createMul(Token **Rest, Token *Tok) {
+Node *ASTContext::createMulExpr(Token **Rest, Token *Tok) {
   // unary
-  Node *Nd = createUnary(&Tok, Tok);
+  Node *Nd = createUnaryExpr(&Tok, Tok);
 
   // ("*" unary | "/" unary)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
     // "*" unary
     if (equal(Tok, "*")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd, createUnary(&Tok, Tok->next()));
+      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd, createUnaryExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "/" unary
     if (equal(Tok, "/")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd, createUnary(&Tok, Tok->next()));
+      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd, createUnaryExpr(&Tok, Tok->next()));
       continue;
     }
 
@@ -371,25 +394,25 @@ Node *ASTContext::createMul(Token **Rest, Token *Tok) {
 
 // parse unary node.
 //    unary = ("+" | "-") unary | primary
-Node *ASTContext::createUnary(Token **Rest, Token *Tok) {
+Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
   // "+" unary
   if (equal(Tok, "+"))
-    return createUnary(Rest, Tok->next());
+    return createUnaryExpr(Rest, Tok->next());
 
   // "-" unary
   if (equal(Tok, "-"))
-    return Node::createUnaryNode(Node::NKind::ND_NEG, createUnary(Rest, Tok->next()));
+    return Node::createUnaryNode(Node::NKind::ND_NEG, createUnaryExpr(Rest, Tok->next()));
 
   // primary
-  return createPrimary(Rest, Tok);
+  return createPrimaryExpr(Rest, Tok);
 }
 
 // parse quotes and number.
 //    primary = "(" expr ")" | num
-Node *ASTContext::createPrimary(Token **Rest, Token *Tok) {
+Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   // "(" expr ")"
   if (equal(Tok, "(")) {
-    Node *Nd = createExpr(&Tok, Tok->next());
+    Node *Nd = createImpl(&Tok, Tok->next());
     *Rest = skip(Tok, ")");
     return Nd;
   }
@@ -533,21 +556,24 @@ void CodeGenContext::genExpr(const Node &Nd) {
 // testcase:
 //    1 != 2
 
-int main(int argc, char **argv) {
+static bool inputArgsCheck(int argc, char **argv) {
   if (argc != 2) {
     std::cerr << "Invalid arguments.\n";
     std::cerr << "Usage:\n";
     std::cerr << "\t ./exec val\n";
-    error("%s: Invalid number of arguments", argv[0]);
+    return false;
   }
+  return true;
+}
+
+int main(int argc, char **argv) {
+  if (!inputArgsCheck(argc, argv))
+    error("%s: Invalid arguments", argv[0]);
 
   std::string input(argv[1]);
-  Token &TKHdl = Token::instance();
-  Token *Tok = TKHdl.tokenize(input);
-  Node &Node = *ASTContext::createExpr(&Tok, Tok);
 
-  if (Tok->getKind() != Token::TKind::TK_EOF)
-    error("Extra token.");
+  Token *Tok = Token::instance().tokenize(input);
+  Node &Node = *ASTContext::instance().create(Tok);
 
   CodeGenContext CGCxt{Node};
   CGCxt.codegen();
