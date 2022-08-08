@@ -8,9 +8,14 @@ enable_testing()
 
 set(CMAKE_CXX_FLAGS "-std=c++2a -g -fno-common")
 
+
 add_executable(rvcc 
-  main.cc
+  src/main.cpp
+  src/codegen.cpp
+  src/parse.cpp
+  src/tokenize.cpp
 )
+
 
 add_test(
   NAME compiler_test
