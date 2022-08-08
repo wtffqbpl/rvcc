@@ -8,7 +8,13 @@ enable_testing()
 
 set(CMAKE_CXX_FLAGS "-std=c++2a -g -fno-common")
 
-add_executable(rvcc src/main.cc)
+include_directories(src)
+add_executable(rvcc
+        src/main.cc
+        src/astcontext.cc
+        src/codegen.cc
+        src/tokens.cc
+        )
 
 add_test(
   NAME compiler_test
