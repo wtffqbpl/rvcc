@@ -1,4 +1,4 @@
-#include "astcontext.h"
+#include "ast_context.h"
 #include "codegen.h"
 #include "rvcc.h"
 #include <iostream>
@@ -30,11 +30,20 @@ void CodeGenContext::pop(const std::string &Reg) {
 
 void CodeGenContext::codegen(const Node &ASTTree) {
   genPrologue();
-  genExpr(ASTTree);
+  for (const Node *N = &ASTTree; N; N = N->getNextNode())
+    genStmt(*N);
   genEpilogue();
 
   // if stack is dirty, then report error.
   assert(Depth == 0);
+}
+
+void CodeGenContext::genStmt(const Node &Nd) {
+  if (Nd.getKind() == Node::NKind::ND_EXPR_STMT) {
+    genExpr(Nd.getLHS());
+    return;
+  }
+  error("invalid statement");
 }
 
 void CodeGenContext::genPrologue() {

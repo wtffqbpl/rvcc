@@ -11,27 +11,33 @@ public:
     ND_SUB,   // -
     ND_MUL,   // *
     ND_DIV,   // /
-    ND_NUM,   // integer
     ND_NEG,   // - (unary operator)
     ND_EQ,    // ==
     ND_NE,    // !=
     ND_LT,    // <
     ND_LE,    // <=
+    ND_EXPR_STMT, // expression node
+    ND_NUM,   // integer
   };
 
 private:
   Node::NKind Kind;   // node type.
-  Node *LHS;          // left-hand side
-  Node *RHS;          // right-hand side
-  int val;            // ND_NUM value
+  Node *Next = nullptr;   // next node, 下一个语句
+  Node *LHS = nullptr;    // left-hand side
+  Node *RHS = nullptr;    // right-hand side
+  int val = 0;            // ND_NUM value
 
 public:
   [[nodiscard]] int getVal() const { return val; }
+  [[nodiscard]] Node *getNextNode() { return Next; }
+  [[nodiscard]] Node *getNextNode() const { return Next; }
+  void setNextNode(Node *node_) { Next = node_; }
   [[nodiscard]] Node::NKind getKind() const { return Kind; }
   [[nodiscard]] Node &getLHS() const { return *LHS; }
   [[nodiscard]] Node &getRHS() const { return *RHS; }
 
 public:
+  Node() = default;
   explicit Node(Node::NKind Kind_, int val_, Node *LHS_, Node *RHS_)
           : Kind(Kind_), val(val_), LHS(LHS_), RHS(RHS_) {}
 
@@ -53,6 +59,9 @@ public:
 
 // BNF:
 //    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
+//    program = stmt* // 表示程序是由多个statements(语句)来构成的
+//    stmt = exprStmt  // 语句是由表达式语句构成 (后续还会由其他语句)
+//    exprStmt = expr ";" // 表达式语句是由表达式 + ";" 组成
 //    expr = equality  // 相等性判断
 //    equality = relational ("==" relational | "!=" relational)*
 //    relational = add("<" add | "<=" add | ">" add | ">=" add)*
@@ -61,7 +70,10 @@ public:
 //    unary = ("+" | "-") unary | primary
 //    primary = "(" expr ")" | num
   Node *create(Token *Tok);
-  Node *createImpl(Token **Rest, Token *Tok);
+
+  Node *createStmt(Token **Rest, Token *Tok);
+  Node *createExprStmt(Token **Rest, Token *Tok);
+  Node *createExpr(Token **Rest, Token *Tok);
   Node *createEqualityExpr(Token **Rest, Token *Tok);
   Node *createRelationalExpr(Token **Rest, Token *Tok);
   Node *createAddExpr(Token **Rest, Token *Tok);

@@ -6,17 +6,15 @@ project(rvcc)
 
 enable_testing()
 
-set(CMAKE_CXX_FLAGS "-std=c++2a -g -fno-common")
+set(CMAKE_CXX_FLAGS "-std=c++2a -g -fno-common -Wno-varargs")
 
 include_directories(src)
 add_executable(rvcc
         src/main.cc
-        src/astcontext.cc
+        src/ast_context.cc
         src/codegen.cc
         src/tokens.cc
         )
 
-add_test(
-  NAME compiler_test
-  COMMAND rvcc 1
-  )
+# testcase directory.
+add_subdirectory(tests)

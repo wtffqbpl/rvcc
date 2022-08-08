@@ -1,4 +1,4 @@
-#include "astcontext.h"
+#include "ast_context.h"
 #include "rvcc.h"
 #include "tokens.h"
 
@@ -32,12 +32,16 @@ ASTContext &ASTContext::instance() {
 }
 
 Node *ASTContext::create(Token *Tok) {
-  Node *node = createImpl(&Tok, Tok);
+  Node Head{};
+  Node *Cur = &Head;
 
-  if (Tok->getKind() != Token::TKind::TK_EOF)
-    error("Extra token.");
+  // stmt* 会有多个statements
+  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+    Cur->setNextNode(createStmt(&Tok, Tok));
+    Cur = Cur->getNextNode();
+  }
 
-  return node;
+  return Head.getNextNode();
 }
 
 static bool equal(Token *Tok, std::string Str) {
@@ -53,9 +57,23 @@ static Token *skip(Token *Tok, std::string Str) {
   return Tok->next();
 }
 
+// parse statement.
+// stmt = exprStmt
+Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
+  return createExprStmt(Rest, Tok);
+}
+
+// exprStmt = expr ";"
+Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
+  Node *Nd = Node::createUnaryNode(Node::NKind::ND_EXPR_STMT,
+                                   createExpr(&Tok, Tok));
+  *Rest = skip(Tok, ";");
+  return Nd;
+}
+
 // parse expression.
-//  expr = equality
-Node *ASTContext::createImpl(Token **Rest, Token *Tok) {
+//  expr = exprStmt
+Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
   return createEqualityExpr(Rest, Tok);
 }
 
@@ -197,7 +215,7 @@ Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
 Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   // "(" expr ")"
   if (equal(Tok, "(")) {
-    Node *Nd = createImpl(&Tok, Tok->next());
+    Node *Nd = createExpr(&Tok, Tok->next());
     *Rest = skip(Tok, ")");
     return Nd;
   }

@@ -28,6 +28,7 @@ public:
   static CodeGenContext &instance();
 
 private:
+  void genStmt(const Node &Nd);
   void genExpr(const Node &Nd);
   void genPrologue();
   void genEpilogue();

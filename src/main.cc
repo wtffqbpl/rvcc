@@ -1,12 +1,8 @@
-#include "astcontext.h"
+#include "ast_context.h"
 #include "codegen.h"
 #include "rvcc.h"
 #include "tokens.h"
 #include <iostream>
-#include <memory>
-
-// testcase:
-//    1 != 2
 
 static bool inputArgsCheck(int argc, char **argv) {
   if (argc != 2) {
@@ -17,6 +13,17 @@ static bool inputArgsCheck(int argc, char **argv) {
   }
   return true;
 }
+
+// testcase:
+//    1+2;3*4;
+//
+//    [HEAD] ------> [EXPR_STMT] -------> [EXPR_STMT]
+//                         |                   |
+//                         |                   |
+//                        [+]                 [*]
+//                       /   \               /   \
+//                      /     \             /     \
+//                     [1]    [2]          [3]    [4]
 
 int main(int argc, char **argv) {
   if (!inputArgsCheck(argc, argv))
