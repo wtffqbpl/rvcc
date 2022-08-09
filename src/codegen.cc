@@ -3,14 +3,10 @@
 #include "rvcc.h"
 #include <iostream>
 
-static CodeGenContext *codeGenContext = nullptr;
 
 CodeGenContext &CodeGenContext::instance() {
-  if (codeGenContext == nullptr) {
-    codeGenContext = new CodeGenContext;
-  }
-
-  return *codeGenContext;
+  static CodeGenContext codeGenContext;
+  return codeGenContext;
 }
 
 void CodeGenContext::push() {

@@ -22,13 +22,9 @@ Node *Node::createNumNode(int Val) {
   return newNode(Node::NKind::ND_NUM, Val);
 }
 
-static ASTContext *astContext = nullptr;
-
 ASTContext &ASTContext::instance() {
-  if (astContext == nullptr) {
-    astContext = new ASTContext();
-  }
-  return *astContext;
+  static ASTContext astContext;
+  return astContext;
 }
 
 Node *ASTContext::create(Token *Tok) {

@@ -2,13 +2,9 @@
 #include "tokens.h"
 #include <string>
 
-static Token *TokenHdl = nullptr;
-
 Token &Token::instance() {
-  if (TokenHdl == nullptr) {
-    TokenHdl = new Token();
-  }
-  return *TokenHdl;
+  static Token TokenHdl;
+  return TokenHdl;
 }
 
 Token *Token::createToken(Token::TKind kind,
@@ -21,8 +17,7 @@ Token *Token::createToken(Token::TKind kind,
 
 std::string::iterator Token::getNumberPos(std::string &input,
                                           std::string::iterator Start) {
-  auto End = input.end();
-  for (; Start != End; ++Start) {
+  for (auto End = input.end(); Start != End; ++Start) {
     char achar = *Start;
     if (!std::isdigit(achar))
       return Start;
