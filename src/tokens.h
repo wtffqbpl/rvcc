@@ -33,7 +33,9 @@ public:
   [[nodiscard]] int getVal() const { return Val; }
   [[nodiscard]] std::string::iterator getLocation() const { return Loc; }
   [[nodiscard]] std::string::size_type getLength() const { return Len; }
-  [[nodiscard]] std::string getIdentName() { return {Loc, Loc + Len}; }
+  [[nodiscard]] std::string getTokenName() { return {Loc, Loc + Len}; }
+
+  void dump(unsigned StatementIndent=0, unsigned Depth=0);
 
 private:
   TKind Kind = Token::TKind::TK_EOF;              // kind

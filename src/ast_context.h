@@ -48,6 +48,8 @@ public:
 
   [[nodiscard]] int getVal() const { return val; }
 
+  void dump(unsigned Depth=0);
+
 public:
   Node() = default;
   explicit Node(Node::NKind Kind_, int val_, Node *LHS_, Node *RHS_)

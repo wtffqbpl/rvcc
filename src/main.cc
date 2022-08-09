@@ -34,8 +34,11 @@ int main(int argc, char **argv) {
   // generate tokens.
   Token *Tok = Token::instance().tokenize(input);
 
+  Tok->dump();
+
   // construct ast tree.
   Node &Node = *ASTContext::instance().create(Tok);
+  Node.dump();
 
   // code gen.
   CodeGenContext::instance().codegen(Node);

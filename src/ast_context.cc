@@ -1,6 +1,8 @@
 #include "ast_context.h"
 #include "rvcc.h"
 #include "tokens.h"
+#include <iostream>
+#include <unordered_map>
 
 // create a new node.
 Node *Node::newNode(Node::NKind Kind, int Val, Node *LHS, Node *RHS) {
@@ -26,6 +28,36 @@ Node *Node::createVarNode(std::string &Var) {
   Node *Nd = newNode(NKind::ND_VAR);
   Nd->setVarName(Var);
   return Nd;
+}
+
+static std::string &getNodeTypeName(Node::NKind Kind) {
+#define NodeTypeName(Kind) {Node::NKind::Kind, #Kind}
+  static std::unordered_map<Node::NKind, std::string> NodeTypeToStrMap = {
+          NodeTypeName(ND_ADD),     NodeTypeName(ND_SUB),       NodeTypeName(ND_MUL),
+          NodeTypeName(ND_DIV),     NodeTypeName(ND_NEG),       NodeTypeName(ND_EQ),
+          NodeTypeName(ND_NE),      NodeTypeName(ND_LT),        NodeTypeName(ND_LE),
+          NodeTypeName(ND_ASSIGN),  NodeTypeName(ND_EXPR_STMT), NodeTypeName(ND_VAR),
+          NodeTypeName(ND_NUM),
+  };
+
+  return NodeTypeToStrMap[Kind];
+}
+
+void Node::dump(unsigned Depth) {
+  // info indent.
+  for (unsigned i = 0; i < Depth; ++i)
+    std::cout << "  ";
+
+  std::cout << "{TYPE, " << getNodeTypeName(Kind) << "}";
+  ++Depth;
+  std::cout << std::endl;
+
+  // children
+  if (LHS) LHS->dump(Depth);
+  if (RHS) RHS->dump(Depth);
+
+  if (Next != nullptr)
+    Next->dump(--Depth);
 }
 
 ASTContext &ASTContext::instance() {
@@ -247,7 +279,7 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
 
   // single variable name.
   if (Tok->getKind() == Token::TKind::TK_IDENT) {
-    std::string IndentName = Tok->getIdentName();
+    std::string IndentName = Tok->getTokenName();
     Node *Nd = Node::createVarNode(IndentName);
     *Rest = Tok->next();
     return Nd;

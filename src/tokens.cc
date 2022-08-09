@@ -1,6 +1,8 @@
 #include "rvcc.h"
 #include "tokens.h"
+#include <iostream>
 #include <string>
+#include <unordered_map>
 
 Token &Token::instance() {
   static Token TokenHdl;
@@ -87,4 +89,47 @@ Token *Token::tokenize(std::string &input) {
   Cur->Next = createToken(Token::TKind::TK_EOF, It, It);
 
   return Head.Next;
+}
+
+
+static std::string getKindStr(Token::TKind Kind) {
+#define TokenTypeName(Kind) {Token::TKind::Kind, #Kind}
+  static std::unordered_map<Token::TKind, std::string> KindToStrMap = {
+          TokenTypeName(TK_IDENT), TokenTypeName(TK_PUNCT), TokenTypeName(TK_NUM), };
+
+  return KindToStrMap[Kind];
+}
+
+void Token::dump(unsigned StatementIndent, unsigned Depth) {
+  // terminator.
+  if (Kind == Token::TKind::TK_EOF)
+    return;
+
+  // Update indent depth.
+  ++Depth;
+
+  for (unsigned i = 0; i < Depth; ++i)
+    std::cout << "  ";
+  std::cout << "{KIND, " << getKindStr(Kind) << "}";
+  switch (Kind) {
+    case Token::TKind::TK_NUM:
+      std::cout << ", {VAL, " << Val << "}";
+      break;
+    case Token::TKind::TK_PUNCT: {
+      std::string TokName = getTokenName();
+      std::cout << ", {SIGN, " << TokName << "}";
+      if (TokName == ";")
+        Depth = StatementIndent;
+      break;
+    }
+    case Token::TKind::TK_IDENT:
+      std::cout << ", {NAME, " << getTokenName() << "}";
+      break;
+    default:
+      assert("No this type of token.");
+      break;
+  }
+  std::cout << std::endl;
+
+  Next->dump(StatementIndent, Depth);
 }
