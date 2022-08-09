@@ -26,12 +26,13 @@ void CodeGenContext::pop(const std::string &Reg) {
 
 void CodeGenContext::codegen(const Node &ASTTree) {
   genPrologue();
-  for (const Node *N = &ASTTree; N; N = N->getNextNode())
+  for (const Node *N = &ASTTree; N; N = N->getNextNode()) {
     genStmt(*N);
-  genEpilogue();
 
-  // if stack is dirty, then report error.
-  assert(Depth == 0);
+    // if stack is dirty, then report error.
+    assert(Depth == 0);
+  }
+  genEpilogue();
 }
 
 void CodeGenContext::genStmt(const Node &Nd) {
@@ -45,11 +46,37 @@ void CodeGenContext::genStmt(const Node &Nd) {
 void CodeGenContext::genPrologue() {
   std::cout << ".globl main" << std::endl;
   std::cout << "main:" << std::endl;
+  std::cout << "  addi sp, sp, -8" << std::endl;
+  std::cout << "  sd fp, 0(sp)" << std::endl;
+
+  // 将sp写入fp
+  std::cout << "  mv fp, sp" << std::endl;
+
+  // 26个字母 * 8 bytes = 208 bytes, 需要在stack上面预留208 bytes 空间
+  std::cout << "  addi sp, sp, -208" << std::endl;
 }
 
 void CodeGenContext::genEpilogue() {
+  // 将fp的值改写回sp
+  std::cout << "  mv sp, fp" << std::endl;
+
+  // 将最早fp保存的值弹栈，恢复fp
+  std::cout << "  ld fp, 0(sp)" << std::endl;
+  std::cout << "  addi sp, sp, 8" << std::endl;
+
   // ret为jalr x0, x1, 0 别名指令，用于返回子程序
   std::cout << "  ret\n";
+}
+
+void CodeGenContext::genAddr(const Node &Nd) {
+  if (Nd.getKind() == Node::NKind::ND_VAR) {
+    const std::string &VarName = Nd.getName();
+    int Offset = (VarName[0] - 'a' + 1) * 8;
+    std::cout << "  addi a0, fp, " << -Offset << std::endl;
+    return;
+  }
+
+  error("not an lvalue");
 }
 
 void CodeGenContext::genExpr(const Node &Nd) {
@@ -63,6 +90,22 @@ void CodeGenContext::genExpr(const Node &Nd) {
       genExpr(Nd.getLHS());
       // neg a0, a0 是 sub a0, x0 的别名，即 a0 = 0 - a0
       std::cout << "  neg a0, a0" << std::endl;
+      return;
+    case Node::NKind::ND_VAR:
+      // variable.
+      // 计算出变量的地址，然后存入a0
+      genAddr(Nd);
+      // 访问a0地址中存储的数据，存入到a0当中
+      std::cout << "  ld a0, 0(a0)" << std::endl;
+      return;
+    case Node::NKind::ND_ASSIGN:
+      // 左部是变量的地址，保存值到地址中
+      genAddr(Nd.getLHS());
+      push();
+      // 右部是右值，为表达式的值
+      genExpr(Nd.getRHS());
+      pop("a1");
+      std::cout << "  sd a0, 0(a1)" << std::endl;
       return;
     default:
       break;

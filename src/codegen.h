@@ -9,10 +9,14 @@
 // 不使用寄存器存储的原因是因为需要存储的值的数量
 //                   STACK
 //            |-----------------|  <------ sp
-//            |-----------------|  <------ sp - 8
-//            |-----------------|  <------ sp - 16
-//            |-----------------|  <------ sp - 24
-//            |-----------------|
+//            |       fp        |          fp = sp - 8
+//            |-----------------|  <------ fp
+//            |       'a'       |          fp - 8
+//            |       'b'       |          fp - 16
+//            |      '...'      |
+//            |       'z'       |          fp - 208
+//            |-----------------|  <------ sp - 8 - 208
+//            |    expr calc    |
 //            |-----------------|
 //
 
@@ -30,6 +34,7 @@ public:
 private:
   void genStmt(const Node &Nd);
   void genExpr(const Node &Nd);
+  void genAddr(const Node &Nd);
   void genPrologue();
   void genEpilogue();
   void push();

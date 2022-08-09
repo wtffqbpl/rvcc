@@ -51,14 +51,21 @@ Token *Token::tokenize(std::string &input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      Cur->Next = createToken(Token::TKind::TK_NUM, It, It);
-      Cur = Cur->Next;
+      Cur->setNextToken(createToken(Token::TKind::TK_NUM, It, It));
+      Cur = Cur->next();
 
       auto NumEndPos = getNumberPos(input, It);
       Cur->Val = std::stoi(input.substr(std::distance(input.begin(), It),
                                         std::distance(It, NumEndPos)));
       Cur->Len = std::distance(It, NumEndPos);
       It = NumEndPos;
+      continue;
+    }
+
+    if (achar >= 'a' && achar <= 'z') {
+      Cur->setNextToken(createToken(TKind::TK_IDENT, It, It + 1));
+      Cur = Cur->next();
+      ++It;
       continue;
     }
 

@@ -1,6 +1,8 @@
 #ifndef SRC_AST_CONTEXT_H
 #define SRC_AST_CONTEXT_H
 
+#include <string>
+
 class Token;
 
 class Node {
@@ -16,25 +18,35 @@ public:
     ND_NE,    // !=
     ND_LT,    // <
     ND_LE,    // <=
+    ND_ASSIGN, // assign
     ND_EXPR_STMT, // expression node
+    ND_VAR, // variable
     ND_NUM,   // integer
   };
 
 private:
-  Node::NKind Kind;   // node type.
+  Node::NKind Kind;       // node type.
   Node *Next = nullptr;   // next node, 下一个语句
   Node *LHS = nullptr;    // left-hand side
   Node *RHS = nullptr;    // right-hand side
+  std::string Name;       // variable name.
   int val = 0;            // ND_NUM value
 
 public:
-  [[nodiscard]] int getVal() const { return val; }
   [[nodiscard]] Node *getNextNode() { return Next; }
   [[nodiscard]] Node *getNextNode() const { return Next; }
   void setNextNode(Node *node_) { Next = node_; }
+
   [[nodiscard]] Node::NKind getKind() const { return Kind; }
+
   [[nodiscard]] Node &getLHS() const { return *LHS; }
   [[nodiscard]] Node &getRHS() const { return *RHS; }
+
+  [[nodiscard]] std::string &getName() { return Name; }
+  [[nodiscard]] const std::string &getName() const { return Name; }
+  void setVarName(std::string Name_) { Name.swap(Name_); }
+
+  [[nodiscard]] int getVal() const { return val; }
 
 public:
   Node() = default;
@@ -44,6 +56,7 @@ public:
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
+  static Node *createVarNode(std::string &Var);
 
 private:
   static Node *newNode(Node::NKind Kind, int Val = 0,
@@ -62,7 +75,8 @@ public:
 //    program = stmt* // 表示程序是由多个statements(语句)来构成的
 //    stmt = exprStmt  // 语句是由表达式语句构成 (后续还会由其他语句)
 //    exprStmt = expr ";" // 表达式语句是由表达式 + ";" 组成
-//    expr = equality  // 相等性判断
+//    expr = assign
+//    assign = equality ("=" assign)?
 //    equality = relational ("==" relational | "!=" relational)*
 //    relational = add("<" add | "<=" add | ">" add | ">=" add)*
 //    add = mul ("+" mul | "-" mul)*
@@ -74,6 +88,7 @@ public:
   Node *createStmt(Token **Rest, Token *Tok);
   Node *createExprStmt(Token **Rest, Token *Tok);
   Node *createExpr(Token **Rest, Token *Tok);
+  Node *createAssignExpr(Token **Rest, Token *Tok);
   Node *createEqualityExpr(Token **Rest, Token *Tok);
   Node *createRelationalExpr(Token **Rest, Token *Tok);
   Node *createAddExpr(Token **Rest, Token *Tok);

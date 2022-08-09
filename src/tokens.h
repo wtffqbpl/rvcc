@@ -4,6 +4,7 @@
 class Token {
 public:
   enum class TKind {
+    TK_IDENT, // identifier, 可以是变量名，函数名等
     TK_PUNCT, // operator. + -
     TK_NUM,   // number
     TK_EOF,   // end of file
@@ -28,9 +29,11 @@ private:
 public:
   [[nodiscard]] TKind getKind() const { return Kind; }
   [[nodiscard]] Token *next() const {return Next; }
+  void setNextToken(Token *Tok_) { Next = Tok_; }
   [[nodiscard]] int getVal() const { return Val; }
   [[nodiscard]] std::string::iterator getLocation() const { return Loc; }
   [[nodiscard]] std::string::size_type getLength() const { return Len; }
+  [[nodiscard]] std::string getIdentName() { return {Loc, Loc + Len}; }
 
 private:
   TKind Kind = Token::TKind::TK_EOF;              // kind
