@@ -70,7 +70,7 @@ void CodeGenContext::genEpilogue() {
 
 void CodeGenContext::genAddr(const Node &Nd) {
   if (Nd.getKind() == Node::NKind::ND_VAR) {
-    const std::string &VarName = Nd.getName();
+    const std::string_view VarName = Nd.getName();
     int Offset = (VarName[0] - 'a' + 1) * 8;
     std::cout << "  addi a0, fp, " << -Offset << std::endl;
     return;

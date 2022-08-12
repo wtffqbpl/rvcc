@@ -24,7 +24,7 @@ Node *Node::createNumNode(int Val) {
   return newNode(Node::NKind::ND_NUM, Val);
 }
 
-Node *Node::createVarNode(std::string &Var) {
+Node *Node::createVarNode(std::string_view Var) {
   Node *Nd = newNode(NKind::ND_VAR);
   Nd->setVarName(Var);
   return Nd;
@@ -279,7 +279,7 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
 
   // single variable name.
   if (Tok->getKind() == Token::TKind::TK_IDENT) {
-    std::string IndentName = Tok->getTokenName();
+    std::string_view IndentName = Tok->getTokenName();
     Node *Nd = Node::createVarNode(IndentName);
     *Rest = Tok->next();
     return Nd;

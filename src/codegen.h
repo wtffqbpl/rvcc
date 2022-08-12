@@ -23,8 +23,6 @@
 class Node;
 
 class CodeGenContext {
-  int Depth = 0;
-
 public:
   explicit CodeGenContext() = default;
   void codegen(const Node &ASTTree);
@@ -39,6 +37,9 @@ private:
   void genEpilogue();
   void push();
   void pop(const std::string &Reg);
+
+private:
+  int Depth = 0;
 };
 
 #endif  // SRC_CODE_GEN_H

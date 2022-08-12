@@ -2,6 +2,7 @@
 #define SRC_AST_CONTEXT_H
 
 #include <string>
+#include <string_view>
 
 class Token;
 
@@ -24,14 +25,6 @@ public:
     ND_NUM,   // integer
   };
 
-private:
-  Node::NKind Kind;       // node type.
-  Node *Next = nullptr;   // next node, 下一个语句
-  Node *LHS = nullptr;    // left-hand side
-  Node *RHS = nullptr;    // right-hand side
-  std::string Name;       // variable name.
-  int val = 0;            // ND_NUM value
-
 public:
   [[nodiscard]] Node *getNextNode() { return Next; }
   [[nodiscard]] Node *getNextNode() const { return Next; }
@@ -42,9 +35,9 @@ public:
   [[nodiscard]] Node &getLHS() const { return *LHS; }
   [[nodiscard]] Node &getRHS() const { return *RHS; }
 
-  [[nodiscard]] std::string &getName() { return Name; }
-  [[nodiscard]] const std::string &getName() const { return Name; }
-  void setVarName(std::string Name_) { Name.swap(Name_); }
+  [[nodiscard]] std::string_view getName() { return Name; }
+  [[nodiscard]] std::string_view getName() const { return Name; }
+  void setVarName(std::string_view Name_) { Name = Name_; }
 
   [[nodiscard]] int getVal() const { return val; }
 
@@ -58,11 +51,45 @@ public:
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
-  static Node *createVarNode(std::string &Var);
+  static Node *createVarNode(std::string_view Var);
 
 private:
   static Node *newNode(Node::NKind Kind, int Val = 0,
                        Node *LHS = nullptr, Node *RHS = nullptr);
+
+private:
+  Node::NKind Kind;       // node type.
+  Node *Next = nullptr;   // next node, 下一个语句
+  Node *LHS = nullptr;    // left-hand side
+  Node *RHS = nullptr;    // right-hand side
+  std::string_view Name;  // variable name.
+  int val = 0;            // ND_NUM value
+};
+
+// Local variable
+class Obj {
+public:
+  [[nodiscard]] Obj *next() { return Next; }
+  [[nodiscard]] std::string_view name() const { return NamePtr; }
+  [[nodiscard]] unsigned offset() const { return Offset; }
+
+private:
+  Obj *Next;                // next obj.
+  std::string_view NamePtr; // variable name. TODO: Using string_view
+  unsigned Offset;          // fp offset.
+};
+
+// Function object.
+class Function {
+public:
+  [[nodiscard]] Node *body() { return Body; }
+  [[nodiscard]] Obj *locals() const { return Locals; }
+  [[nodiscard]] unsigned stackSize() const { return StackSize; }
+
+private:
+  Node *Body = nullptr;     // Function body.
+  Obj *Locals = nullptr;    // Local variables.
+  unsigned StackSize = 0;   // Stack size.
 };
 
 // Generate AST

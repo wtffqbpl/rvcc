@@ -17,7 +17,7 @@ public:
           : Kind(Kind_), Next(Next_), Val(Val_), Loc(Loc_), Len(Len_) {}
 
   static Token &instance();
-  Token *tokenize(std::string &input);
+  Token *tokenize(std::string &&input);
 
 private:
   Token *createToken(Token::TKind kind,
@@ -33,11 +33,15 @@ public:
   [[nodiscard]] int getVal() const { return Val; }
   [[nodiscard]] std::string::iterator getLocation() const { return Loc; }
   [[nodiscard]] std::string::size_type getLength() const { return Len; }
-  [[nodiscard]] std::string getTokenName() { return {Loc, Loc + Len}; }
+  [[nodiscard]] std::string_view getTokenName() {
+    std::string::size_type Start = std::distance(SourceCode.begin(), Loc);
+    return std::string_view{SourceCode.data() + Start, Len};
+  }
 
   void dump(unsigned StatementIndent=0, unsigned Depth=0);
 
 private:
+  std::string SourceCode;                         // source code
   TKind Kind = Token::TKind::TK_EOF;              // kind
   Token *Next = nullptr;                          // next token
   int Val = 0;                                    // value

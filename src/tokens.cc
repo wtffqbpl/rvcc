@@ -27,6 +27,20 @@ std::string::iterator Token::getNumberPos(std::string &input,
   return Start;
 }
 
+/*
+ * @brief [a-zA-Z_]
+ */
+static bool isValidIndent1(char achar) {
+  return std::isalpha(achar) || achar == '_';
+}
+
+/*
+ * @brief [a-zA-Z0-9_]*
+ */
+static bool isValidIndent2(char achar) {
+  return std::isalpha(achar) || std::isdigit(achar) || achar == '_';
+}
+
 static size_t readPunct(std::string &input, std::string::size_type start) {
   if (start + 1 < input.size()) {
     std::string punctStr = input.substr(start, 2);
@@ -37,12 +51,15 @@ static size_t readPunct(std::string &input, std::string::size_type start) {
 }
 
 // EOF parser.
-Token *Token::tokenize(std::string &input) {
+Token *Token::tokenize(std::string &&input) {
   Token Head{};
   Token *Cur = &Head;
-  auto It = input.begin();
 
-  for (auto End = input.end(); It != End;) {
+  // SourceCode.swap(input);
+  SourceCode = input;
+  auto It = SourceCode.begin();
+
+  for (auto End = SourceCode.end(); It != End;) {
     char achar = *It;
 
     // skip spaces
@@ -56,23 +73,27 @@ Token *Token::tokenize(std::string &input) {
       Cur->setNextToken(createToken(Token::TKind::TK_NUM, It, It));
       Cur = Cur->next();
 
-      auto NumEndPos = getNumberPos(input, It);
-      Cur->Val = std::stoi(input.substr(std::distance(input.begin(), It),
+      auto NumEndPos = getNumberPos(SourceCode, It);
+      Cur->Val = std::stoi(SourceCode.substr(std::distance(SourceCode.begin(), It),
                                         std::distance(It, NumEndPos)));
       Cur->Len = std::distance(It, NumEndPos);
       It = NumEndPos;
       continue;
     }
 
-    if (achar >= 'a' && achar <= 'z') {
-      Cur->setNextToken(createToken(TKind::TK_IDENT, It, It + 1));
+    if (isValidIndent1(achar)) {
+      std::string::iterator StartPt = It;
+      do {
+        ++It;
+      } while (isValidIndent2(*It));
+
+      Cur->setNextToken(createToken(TKind::TK_IDENT, StartPt, It));
       Cur = Cur->next();
-      ++It;
       continue;
     }
 
     // parse operators.
-    int PunctLen = readPunct(input, std::distance(input.begin(), It));
+    int PunctLen = readPunct(SourceCode, std::distance(SourceCode.begin(), It));
     if (PunctLen) {
       Cur->Next = createToken(Token::TKind::TK_PUNCT, It, It + PunctLen);
       Cur = Cur->Next;
@@ -90,7 +111,6 @@ Token *Token::tokenize(std::string &input) {
 
   return Head.Next;
 }
-
 
 static std::string getKindStr(Token::TKind Kind) {
 #define TokenTypeName(Kind) {Token::TKind::Kind, #Kind}
@@ -116,7 +136,7 @@ void Token::dump(unsigned StatementIndent, unsigned Depth) {
       std::cout << ", {VAL, " << Val << "}";
       break;
     case Token::TKind::TK_PUNCT: {
-      std::string TokName = getTokenName();
+      std::string_view TokName = getTokenName();
       std::cout << ", {SIGN, " << TokName << "}";
       if (TokName == ";")
         Depth = StatementIndent;

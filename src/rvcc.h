@@ -21,4 +21,12 @@ static void error(std::string StrFmt, ...) {
   std::exit(1);
 }
 
+/*
+ * @brief Align N to Align.
+ */
+static inline int alignTo(int N, int Align) {
+  // align to Align. (0, Align] ---> return Align
+  return (N + Align - 1) / Align * Align;
+}
+
 #endif // SRC_RVCC_H
