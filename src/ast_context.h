@@ -1,8 +1,10 @@
 #ifndef SRC_AST_CONTEXT_H
 #define SRC_AST_CONTEXT_H
 
+#include <list>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 class Token;
 class Obj;
@@ -12,62 +14,180 @@ class Node {
 public:
   // AST node type.
   enum class NKind {
-    ND_ADD,   // +
-    ND_SUB,   // -
-    ND_MUL,   // *
-    ND_DIV,   // /
-    ND_NEG,   // - (unary operator)
-    ND_EQ,    // ==
-    ND_NE,    // !=
-    ND_LT,    // <
-    ND_LE,    // <=
-    ND_ASSIGN, // assign
-    ND_EXPR_STMT, // expression node
-    ND_VAR, // variable
-    ND_NUM,   // integer
+#define NODE_INFO(Type, Expr, Desc) ND_##Type,
+#include "node_type.def"
   };
 
 public:
-  [[nodiscard]] Node *getNextNode() { return Next; }
-  [[nodiscard]] Node *getNextNode() const { return Next; }
-  void setNextNode(Node *node_) { Next = node_; }
-
-  [[nodiscard]] Node::NKind getKind() const { return Kind; }
-
-  [[nodiscard]] Node &getLHS() const { return *LHS; }
-  [[nodiscard]] Node &getRHS() const { return *RHS; }
-  [[nodiscard]] Obj &getVar() const { return *Var; }
-  void setVar(Obj *Var_) { Var = Var_; }
-  [[nodiscard]] std::string_view getName() { return Name; }
-  [[nodiscard]] std::string_view getName() const { return Name; }
-  void setVarName(std::string_view Name_) { Name = Name_; }
-
-  [[nodiscard]] int getVal() const { return val; }
+  [[nodiscard]] Node::NKind getKind() const { return Kind_; };
 
   void dump(unsigned Depth=0);
 
+  virtual void print(std::ostream &os) {}
+
 public:
-  Node() = default;
-  explicit Node(Node::NKind Kind_, int val_, Node *LHS_, Node *RHS_)
-          : Kind(Kind_), val(val_), LHS(LHS_), RHS(RHS_) {}
+  Node() = delete;
+  explicit Node(Node::NKind Kind, std::string_view Name, Node *Next = nullptr)
+      : Kind_(Kind), Name_(Name), Next_(Next) {}
+
+  [[nodiscard]] std::string_view getName() { return Name_; }
+  [[nodiscard]] std::string_view getName() const { return Name_; }
+  [[nodiscard]] Node *getNext() { return Next_; }
+  [[nodiscard]] Node *getNext() const { return Next_; }
+  void setNext(Node *Next) { Next_ = Next; }
 
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
   static Node *createVarNode(Obj *Var);
+  static std::string &getTypeName(Node::NKind Kind) {
+    return NodeTypeStrMap_[Kind];
+  }
+
+  friend class ASTContext;
+
+protected:
+  Node *Next_ = nullptr;
 
 private:
-  static Node *newNode(Node::NKind Kind, int Val = 0,
-                       Node *LHS = nullptr, Node *RHS = nullptr);
+  static std::unordered_map<Node::NKind, std::string> NodeTypeStrMap_;
+
+  Node::NKind Kind_;      // node type.
+  std::string_view Name_; // variable name.
+};
+
+template <typename ET> bool isa(Node *V) {
+  try {
+    auto *Nd = dynamic_cast<ET *>(V);
+    if (Nd && ET::isa(Nd))
+      return true;
+  } catch (...) {
+    // no need to do anything.
+  }
+  return false;
+}
+
+class BinaryNode : public Node {
+public:
+  explicit BinaryNode(Node::NKind Kind, std::string_view Name, Node *LHS,
+                      Node *RHS)
+      : Node(Kind, Name), LHS_(LHS), RHS_(RHS) {}
+
+  [[nodiscard]] Node *getLHS() { return LHS_; }
+  [[nodiscard]] Node *getRHS() { return RHS_; }
+
+  void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+
+public:
+  static bool isa(const BinaryNode *V) {
+#define BINARY_NODE_INFO(Type, Expr, Desc)                                     \
+  case Node::NKind::ND_##Type:                                                 \
+    return true;
+
+    switch (V->getKind()) {
+#include "node_type.def"
+    default:
+      break;
+    }
+
+    return false;
+  }
 
 private:
-  Node::NKind Kind;       // node type.
-  Node *Next = nullptr;   // next node, 下一个语句
-  Node *LHS = nullptr;    // left-hand side
-  Node *RHS = nullptr;    // right-hand side
-  Obj *Var = nullptr;     // 存储 ND_VAR 的变量
-  std::string_view Name;  // variable name.
-  int val = 0;            // ND_NUM value
+  Node *LHS_;
+  Node *RHS_;
+};
+
+class NegNode : public Node {
+public:
+  explicit NegNode(std::string_view Name, Node *LHS = nullptr)
+      : Node(Node::NKind::ND_NE, Name), LHS_(LHS) {}
+
+  [[nodiscard]] Node *getLHS() const { return LHS_; }
+  [[nodiscard]] Node *getLHS() { return LHS_; }
+
+  void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+
+public:
+  static bool isa(const NegNode *V) {
+    return V->getKind() == Node::NKind::ND_NEG;
+  }
+
+private:
+  Node *LHS_;
+};
+
+class NumNode : public Node {
+public:
+  explicit NumNode(std::string_view Name, int Value)
+      : Node(Node::NKind::ND_NUM, Name), Value_(Value) {}
+
+  [[nodiscard]] int getValue() const { return Value_; }
+
+  void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+
+public:
+  static bool isa(const NumNode *V) {
+    return V->getKind() == Node::NKind::ND_NUM;
+  }
+
+private:
+  int Value_;
+};
+
+class ExprStmtNode : public Node {
+public:
+  explicit ExprStmtNode(std::string_view Name, Node *Child)
+      : Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
+
+  [[nodiscard]] Node *getChild() const { return Child_; }
+  void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+
+public:
+  static bool isa(const ExprStmtNode *V) {
+    return V->getKind() == Node::NKind::ND_EXPR_STMT;
+  }
+
+private:
+  Node *Child_;
+};
+
+class Obj; // old variable info class.
+
+class VariableNode : public Node {
+public:
+  /*
+   * @brief 由于变量需要在 stack
+   * 上面申请空间，而且变量的顺序也需要固定，方便后面去获取，
+   *        因此也需要使用链表将变量关联在一起.
+   *        TODO: 是否可以将变量之间的链表关系放在外面，通过链表数据结构来保证?
+   */
+  struct VarInfo {
+    VarInfo *Next = nullptr;
+    std::string_view Name;
+    unsigned FrameIdx = 0;
+  };
+
+public:
+  [[maybe_unused]] VariableNode(VarInfo *VI)
+      : Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
+        Obj_(VI) {}
+
+  explicit VariableNode(Obj *ObjOld)
+      : Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
+        Old_Obj_(ObjOld) {}
+
+  [[nodiscard]] Obj &getObj() const { return *Old_Obj_; }
+  void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+
+public:
+  static bool isa(const VariableNode *V) {
+    return V->getKind() == Node::NKind::ND_VAR;
+  }
+
+private:
+  VarInfo *Obj_ = nullptr;
+  Obj *Old_Obj_ = nullptr;
 };
 
 // Local variable
@@ -76,27 +196,32 @@ public:
   Obj(std::string_view Name_, Obj *Next_) : Name(Name_), Next(Next_) {}
   [[nodiscard]] Obj *next() { return Next; }
   [[nodiscard]] std::string_view name() const { return Name; }
-  [[nodiscard]] unsigned offset() const { return Offset; }
+  [[nodiscard]] int offset() const { return Offset; }
+  void setOffset(int Offset_) { Offset = Offset_; }
 
 private:
   Obj *Next;                // next obj.
   std::string_view Name;    // variable name. TODO: Using string_view
-  unsigned Offset;          // fp offset.
+  int Offset;               // fp offset.
 };
 
 // Function object.
 class Function {
 public:
   [[nodiscard]] Node *body() { return Body; }
-  void setBody(Node *Body_) { Body = Body_; }
   [[nodiscard]] Obj *locals() const { return Locals; }
-  void setLocals(Obj *Locals_) { Locals = Locals_; }
   [[nodiscard]] unsigned stackSize() const { return StackSize; }
+
+  void setBody(Node *Body_) { Body = Body_; }
+  void setLocals(Obj *Locals_) { Locals = Locals_; }
+  void setStackSize(int StkSize) { StackSize = StkSize; }
 
 private:
   Node *Body = nullptr;     // Function body.
   Obj *Locals = nullptr;    // Local variables.
-  unsigned StackSize = 0;   // Stack size.
+  int StackSize = 0;        // Stack size.
+  std::list<Node *> Body_list;  // TODO: using bi-list
+  std::list<Obj *> Locals_list; // TODO: using this for local variables.
 };
 
 // Generate AST
@@ -131,8 +256,6 @@ public:
   Node *createMulExpr(Token **Rest, Token *Tok);
   Node *createUnaryExpr(Token **Rest, Token *Tok);
   Node *createPrimaryExpr(Token **Rest, Token *Tok);
-
-  friend class Node;
 
 private:
   Token *CurTok;

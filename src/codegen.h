@@ -9,13 +9,10 @@
 // 不使用寄存器存储的原因是因为需要存储的值的数量
 //                   STACK
 //            |-----------------|  <------ sp
-//            |       fp        |          fp = sp - 8
-//            |-----------------|  <------ fp
-//            |       'a'       |          fp - 8
-//            |       'b'       |          fp - 16
-//            |      '...'      |
-//            |       'z'       |          fp - 208
-//            |-----------------|  <------ sp - 8 - 208
+//            |       fp        |
+//            |-----------------|  <------ fp = sp - 8
+//            |      变量        |
+//            |-----------------|  <------ sp = sp - 8 - StackSize
 //            |    expr calc    |
 //            |-----------------|
 //
@@ -25,15 +22,15 @@ class Node;
 class CodeGenContext {
 public:
   explicit CodeGenContext() = default;
-  void codegen(const Node &ASTTree);
+  void codegen(Function *Prog);
 
   static CodeGenContext &instance();
 
 private:
-  void genStmt(const Node &Nd);
-  void genExpr(const Node &Nd);
-  void genAddr(const Node &Nd);
-  void genPrologue();
+  void genStmt(Node *Nd);
+  void genExpr(Node *Nd);
+  void genAddr(Node *Nd);
+  void genPrologue(Function *Prog);
   void genEpilogue();
   void push();
   void pop(const std::string &Reg);

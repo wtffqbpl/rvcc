@@ -34,17 +34,17 @@ int main(int argc, char **argv) {
   }
 
   // construct ast tree.
-  Function *Node = nullptr;
+  Function *Prog = nullptr;
   {
     Timer("AST Construction");
-    Node = ASTContext::instance().create(Tok);
+    Prog = ASTContext::instance().create(Tok);
     Tok->dump();
   }
 
   // code generation.
   {
     Timer("Code generation");
-    // CodeGenContext::instance().codegen(*Node);
+    CodeGenContext::instance().codegen(Prog);
   }
 
   return 0;

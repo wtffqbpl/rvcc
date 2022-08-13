@@ -2,6 +2,7 @@
 #define SRC_RVCC_H
 
 #include "logs.h"
+#include <cassert>
 
 /*
  * @brief Align N to Align.

@@ -7,37 +7,54 @@
 // 在解析时，全部的变量实例都被累加到这个列表中。
 static Obj *Locals = nullptr;
 
-static Obj *findVar(Token *Tok) {
+static Obj *findVar(IndentToken *Tok) {
   for (Obj *Var = Locals; Var; Var = Var->next())
-    if (Var->name() == Tok->getTokenName())
+    if (Var->name() == Tok->getName())
       return Var;
   return nullptr;
 }
 
-// create a new node.
-Node *Node::newNode(Node::NKind Kind, int Val, Node *LHS, Node *RHS) {
-  Node *Nd = new Node{Kind, Val, LHS, RHS};
-  return Nd;
-}
+std::unordered_map<Node::NKind, std::string> Node::NodeTypeStrMap_ = {
+#define NODE_INFO(Type, Expr, Desc) {Node::NKind::ND_##Type, Desc},
+#include "node_type.def"
+};
 
+// 解析一元运算符
+//    unary = ("+" | "-") unary | primary
 Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
-  return newNode(Kind, 0, Nd);
+  Node *CurNd = nullptr;
+  switch (Kind) {
+  case Node::NKind::ND_NEG:
+    // There's only LSH node.
+    CurNd = dynamic_cast<Node *>(new NegNode{Node::getTypeName(Kind), Nd});
+    break;
+  case Node::NKind::ND_EXPR_STMT:
+    // There's only Next node.
+    CurNd = dynamic_cast<Node *>(new ExprStmtNode{Node::getTypeName(Kind), Nd});
+    break;
+  default:
+    logging::error("Cannot handle this type of node: ",
+                   static_cast<unsigned>(Kind));
+    break;
+  }
+
+  return CurNd;
 }
 
 // create a new binary tree node.
 Node *Node::createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS) {
-  return newNode(Kind, 0, LHS, RHS);
+  return dynamic_cast<Node *>(
+      new BinaryNode{Kind, Node::getTypeName(Kind), LHS, RHS});
 }
 
 // create a new number node.
 Node *Node::createNumNode(int Val) {
-  return newNode(Node::NKind::ND_NUM, Val);
+  return dynamic_cast<Node *>(
+      new NumNode{Node::getTypeName(NKind::ND_NEG), Val});
 }
 
 Node *Node::createVarNode(Obj *Var) {
-  Node *Nd = newNode(NKind::ND_VAR);
-  Nd->setVar(Var);
-  return Nd;
+  return dynamic_cast<Node *>(new VariableNode{Var});
 }
 
 static Obj *newLVar(std::string_view Name) {
@@ -64,16 +81,18 @@ void Node::dump(unsigned Depth) {
   for (unsigned i = 0; i < Depth; ++i)
     std::cout << "  ";
 
-  std::cout << "{TYPE, " << getNodeTypeName(Kind) << "}";
+  std::cout << "{TYPE, " << Node::getTypeName(Kind_) << "}";
   ++Depth;
   std::cout << std::endl;
 
+#if 0
   // children
   if (LHS) LHS->dump(Depth);
   if (RHS) RHS->dump(Depth);
 
   if (Next != nullptr)
     Next->dump(--Depth);
+#endif
 }
 
 ASTContext &ASTContext::instance() {
@@ -82,29 +101,32 @@ ASTContext &ASTContext::instance() {
 }
 
 Function *ASTContext::create(Token *Tok) {
-  Node Head{};
+  Function *Prog = new Function;
+  Node Head{Node::NKind::ND_EXPR_STMT,
+            Node::getTypeName(Node::NKind::ND_EXPR_STMT)};
   Node *Cur = &Head;
 
   // stmt* 会有多个statements
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-    Cur->setNextNode(createStmt(&Tok, Tok));
-    Cur = Cur->getNextNode();
+    Cur->setNext(createStmt(&Tok, Tok));
+    Cur = Cur->getNext();
   }
 
-  Function *Prog = new Function;
-  Prog->setBody(Head.getNextNode());
+  Prog->setBody(Head.getNext());
   Prog->setLocals(Locals);
+
+  return Prog;
 }
 
-static bool equal(Token *Tok, std::string Str) {
+static bool equal(std::string_view Name, std::string_view Str) {
   // compare LHS and RHS, if S2
-  return std::equal(Tok->getLocation(), Tok->getLocation() + Tok->getLength(),
-                    Str.begin());
+  return Name == Str;
 }
 
 // skip specified string
-static Token *skip(Token *Tok, std::string Str) {
-  if (!equal(Tok, Str))
+static Token *skipPunct(Token *Tok, std::string_view Str) {
+  if (!isa<PunctToken>(Tok) ||
+      dynamic_cast<PunctToken *>(Tok)->getName() != Str)
     logging::error("expect %s", Str.data());
   return Tok->next();
 }
@@ -119,7 +141,7 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
 Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
   Node *Nd = Node::createUnaryNode(Node::NKind::ND_EXPR_STMT,
                                    createExpr(&Tok, Tok));
-  *Rest = skip(Tok, ";");
+  *Rest = skipPunct(Tok, ";");
   return Nd;
 }
 
@@ -130,12 +152,11 @@ Node *ASTContext::createAssignExpr(Token **Rest, Token *Tok) {
   Node *Nd = createEqualityExpr(&Tok, Tok);
 
   // 可能存在递归赋值，如： a = b = 1;
-  if (equal(Tok, "="))
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "="))
     Nd = Node::createBinaryNode(Node::NKind::ND_ASSIGN, Nd,
                                 createAssignExpr(&Tok, Tok->next()));
-
   *Rest = Tok;
-
   return Nd;
 }
 
@@ -145,22 +166,27 @@ Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
   return createAssignExpr(Rest, Tok);
 }
 
-// parse equality
+// parse
+//    assign = relational ("==" relational | "!=" relational)*
 Node *ASTContext::createEqualityExpr(Token **Rest, Token *Tok) {
   // relational
   Node *Nd = createRelationalExpr(&Tok, Tok);
 
   // ("==" relational | "!=" relational)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+    if (!isa<PunctToken>(Tok))
+      break;
+
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
     // "==" relational
-    if (equal(Tok, "==")) {
+    if (equal(PunctTok.getName(), "==")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_EQ, Nd,
                                   createRelationalExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "!=" relational
-    if (equal(Tok, "!=")) {
+    if (equal(PunctTok.getName(), "!=")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_NE, Nd,
                                   createRelationalExpr(&Tok, Tok->next()));
       continue;
@@ -173,35 +199,45 @@ Node *ASTContext::createEqualityExpr(Token **Rest, Token *Tok) {
   return Nd;
 }
 
+// 解析比较关系
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 Node *ASTContext::createRelationalExpr(Token **Rest, Token *Tok) {
   // add
   Node *Nd = createAddExpr(&Tok, Tok);
 
   // ("<" add | "<=" add | ">" add | ">=" add)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+    if (!isa<PunctToken>(Tok))
+      break;
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
+
     // "<" add
-    if (equal(Tok, "<")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LT, Nd, createAddExpr(&Tok, Tok->next()));
+    if (equal(PunctTok.getName(), "<")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LT, Nd,
+                                  createAddExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "<=" add
-    if (equal(Tok, "<=")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LE, Nd, createAddExpr(&Tok, Tok->next()));
+    if (equal(PunctTok.getName(), "<=")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LE, Nd,
+                                  createAddExpr(&Tok, Tok->next()));
       continue;
     }
 
     // ">" add
     // X > Y is equivalent to Y < X
-    if (equal(Tok, ">")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LT, createAddExpr(&Tok, Tok->next()), Nd);
+    if (equal(PunctTok.getName(), ">")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LT,
+                                  createAddExpr(&Tok, Tok->next()), Nd);
       continue;
     }
 
     // ">=" add
     // X >= Y is equivalent to Y <= X
-    if (equal(Tok, ">=")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_LE, createAddExpr(&Tok, Tok->next()), Nd);
+    if (equal(PunctTok.getName(), ">=")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_LE,
+                                  createAddExpr(&Tok, Tok->next()), Nd);
       continue;
     }
 
@@ -218,14 +254,20 @@ Node *ASTContext::createAddExpr(Token **Rest, Token *Tok) {
 
   // ("+" mul | "-" mul)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-    if (equal(Tok, "+")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd, createMulExpr(&Tok, Tok->next()));
+    if (!isa<PunctToken>(Tok))
+      break;
+
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
+    if (equal(PunctTok.getName(), "+")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd,
+                                  createMulExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "-" mul
-    if (equal(Tok, "-")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Nd, createMulExpr(&Tok, Tok->next()));
+    if (equal(PunctTok.getName(), "-")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Nd,
+                                  createMulExpr(&Tok, Tok->next()));
       continue;
     }
 
@@ -244,15 +286,21 @@ Node *ASTContext::createMulExpr(Token **Rest, Token *Tok) {
 
   // ("*" unary | "/" unary)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+    if (!isa<PunctToken>(Tok))
+      break;
+
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
     // "*" unary
-    if (equal(Tok, "*")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd, createUnaryExpr(&Tok, Tok->next()));
+    if (equal(PunctTok.getName(), "*")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd,
+                                  createUnaryExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "/" unary
-    if (equal(Tok, "/")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd, createUnaryExpr(&Tok, Tok->next()));
+    if (equal(PunctTok.getName(), "/")) {
+      Nd = Node::createBinaryNode(Node::NKind::ND_DIV, Nd,
+                                  createUnaryExpr(&Tok, Tok->next()));
       continue;
     }
 
@@ -267,12 +315,15 @@ Node *ASTContext::createMulExpr(Token **Rest, Token *Tok) {
 //    unary = ("+" | "-") unary | primary
 Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
   // "+" unary
-  if (equal(Tok, "+"))
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
     return createUnaryExpr(Rest, Tok->next());
 
   // "-" unary
-  if (equal(Tok, "-"))
-    return Node::createUnaryNode(Node::NKind::ND_NEG, createUnaryExpr(Rest, Tok->next()));
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "-"))
+    return Node::createUnaryNode(Node::NKind::ND_NEG,
+                                 createUnaryExpr(Rest, Tok->next()));
 
   // primary
   return createPrimaryExpr(Rest, Tok);
@@ -282,26 +333,28 @@ Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
 //    primary = "(" expr ")" | num
 Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   // "(" expr ")"
-  if (equal(Tok, "(")) {
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "(")) {
     Node *Nd = createExpr(&Tok, Tok->next());
-    *Rest = skip(Tok, ")");
+    *Rest = skipPunct(Tok, ")");
     return Nd;
   }
 
   // num
-  if (Tok->getKind() == Token::TKind::TK_NUM) {
-    Node *Nd = Node::createNumNode(Tok->getVal());
+  if (isa<NumToken>(Tok)) {
+    Node *Nd = Node::createNumNode(dynamic_cast<NumToken *>(Tok)->getVal());
     *Rest = Tok->next();
     return Nd;
   }
 
   // single variable name.
-  if (Tok->getKind() == Token::TKind::TK_IDENT) {
-    std::string_view IndentName = Tok->getTokenName();
-    Obj *Var = findVar(Tok);
+  if (isa<IndentToken>(Tok)) {
+    auto *IdentTok = dynamic_cast<IndentToken *>(Tok);
+    std::string_view VarName = IdentTok->getName();
+    Obj *Var = findVar(IdentTok);
     if (!Var)
-      Var = newLVar(IndentName);
-    *Rest = Tok->next();
+      Var = newLVar(VarName);
+    *Rest = IdentTok->next();
     return Node::createVarNode(Var);
   }
 
