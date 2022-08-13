@@ -5,6 +5,8 @@
 #include <string_view>
 
 class Token;
+class Obj;
+class Function;
 
 class Node {
 public:
@@ -34,7 +36,8 @@ public:
 
   [[nodiscard]] Node &getLHS() const { return *LHS; }
   [[nodiscard]] Node &getRHS() const { return *RHS; }
-
+  [[nodiscard]] Obj &getVar() const { return *Var; }
+  void setVar(Obj *Var_) { Var = Var_; }
   [[nodiscard]] std::string_view getName() { return Name; }
   [[nodiscard]] std::string_view getName() const { return Name; }
   void setVarName(std::string_view Name_) { Name = Name_; }
@@ -51,7 +54,7 @@ public:
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
-  static Node *createVarNode(std::string_view Var);
+  static Node *createVarNode(Obj *Var);
 
 private:
   static Node *newNode(Node::NKind Kind, int Val = 0,
@@ -62,6 +65,7 @@ private:
   Node *Next = nullptr;   // next node, 下一个语句
   Node *LHS = nullptr;    // left-hand side
   Node *RHS = nullptr;    // right-hand side
+  Obj *Var = nullptr;     // 存储 ND_VAR 的变量
   std::string_view Name;  // variable name.
   int val = 0;            // ND_NUM value
 };
@@ -69,13 +73,14 @@ private:
 // Local variable
 class Obj {
 public:
+  Obj(std::string_view Name_, Obj *Next_) : Name(Name_), Next(Next_) {}
   [[nodiscard]] Obj *next() { return Next; }
-  [[nodiscard]] std::string_view name() const { return NamePtr; }
+  [[nodiscard]] std::string_view name() const { return Name; }
   [[nodiscard]] unsigned offset() const { return Offset; }
 
 private:
   Obj *Next;                // next obj.
-  std::string_view NamePtr; // variable name. TODO: Using string_view
+  std::string_view Name;    // variable name. TODO: Using string_view
   unsigned Offset;          // fp offset.
 };
 
@@ -83,7 +88,9 @@ private:
 class Function {
 public:
   [[nodiscard]] Node *body() { return Body; }
+  void setBody(Node *Body_) { Body = Body_; }
   [[nodiscard]] Obj *locals() const { return Locals; }
+  void setLocals(Obj *Locals_) { Locals = Locals_; }
   [[nodiscard]] unsigned stackSize() const { return StackSize; }
 
 private:
@@ -112,7 +119,7 @@ public:
 //    mul = primary ("*" primary | "/" primary)
 //    unary = ("+" | "-") unary | primary
 //    primary = "(" expr ")" | num
-  Node *create(Token *Tok);
+  Function *create(Token *Tok);
 
   Node *createStmt(Token **Rest, Token *Tok);
   Node *createExprStmt(Token **Rest, Token *Tok);

@@ -40,7 +40,7 @@ void CodeGenContext::genStmt(const Node &Nd) {
     genExpr(Nd.getLHS());
     return;
   }
-  error("invalid statement");
+  logging::error("invalid statement");
 }
 
 void CodeGenContext::genPrologue() {
@@ -76,7 +76,7 @@ void CodeGenContext::genAddr(const Node &Nd) {
     return;
   }
 
-  error("not an lvalue");
+  logging::error("not an lvalue");
 }
 
 void CodeGenContext::genExpr(const Node &Nd) {
@@ -154,5 +154,6 @@ void CodeGenContext::genExpr(const Node &Nd) {
     default:
       break;
   }
-  error("invalid expression");
+
+  logging::error("invalid expression");
 }

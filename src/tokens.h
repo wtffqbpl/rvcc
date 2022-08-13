@@ -16,23 +16,15 @@ public:
         size_t Len_)
           : Kind(Kind_), Next(Next_), Val(Val_), Loc(Loc_), Len(Len_) {}
 
-  static Token &instance();
-  Token *tokenize(std::string &&input);
-
-private:
-  Token *createToken(Token::TKind kind,
-                     std::string::iterator Start,
-                     std::string::iterator End);
-  std::string::iterator getNumberPos(std::string &input,
-                                     std::string::iterator Start);
-
 public:
   [[nodiscard]] TKind getKind() const { return Kind; }
   [[nodiscard]] Token *next() const {return Next; }
-  void setNextToken(Token *Tok_) { Next = Tok_; }
+  void setNext(Token *Tok_) { Next = Tok_; }
   [[nodiscard]] int getVal() const { return Val; }
+  void setVal(int Val_) { Val = Val_; }
   [[nodiscard]] std::string::iterator getLocation() const { return Loc; }
   [[nodiscard]] std::string::size_type getLength() const { return Len; }
+  void setLen(std::string::size_type Len_) { Len = Len_; }
   [[nodiscard]] std::string_view getTokenName() {
     std::string::size_type Start = std::distance(SourceCode.begin(), Loc);
     return std::string_view{SourceCode.data() + Start, Len};
@@ -47,6 +39,20 @@ private:
   int Val = 0;                                    // value
   std::string::iterator Loc;                      // location
   std::string::size_type Len = std::string::npos; // length
+};
+
+class TokenContext {
+public:
+  TokenContext() = default;
+  static TokenContext &instance();
+  Token *tokenize(std::string &&input);
+
+private:
+  Token *create(Token::TKind kind, std::string::iterator start,
+                std::string::iterator end);
+
+private:
+  std::string source_code_;
 };
 
 #endif  // SRC_TOKENS_H

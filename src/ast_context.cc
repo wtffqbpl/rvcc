@@ -4,6 +4,16 @@
 #include <iostream>
 #include <unordered_map>
 
+// 在解析时，全部的变量实例都被累加到这个列表中。
+static Obj *Locals = nullptr;
+
+static Obj *findVar(Token *Tok) {
+  for (Obj *Var = Locals; Var; Var = Var->next())
+    if (Var->name() == Tok->getTokenName())
+      return Var;
+  return nullptr;
+}
+
 // create a new node.
 Node *Node::newNode(Node::NKind Kind, int Val, Node *LHS, Node *RHS) {
   Node *Nd = new Node{Kind, Val, LHS, RHS};
@@ -24,10 +34,16 @@ Node *Node::createNumNode(int Val) {
   return newNode(Node::NKind::ND_NUM, Val);
 }
 
-Node *Node::createVarNode(std::string_view Var) {
+Node *Node::createVarNode(Obj *Var) {
   Node *Nd = newNode(NKind::ND_VAR);
-  Nd->setVarName(Var);
+  Nd->setVar(Var);
   return Nd;
+}
+
+static Obj *newLVar(std::string_view Name) {
+  Obj *Var = new Obj{Name, Locals};
+  Locals = Var;
+  return Var;
 }
 
 static std::string &getNodeTypeName(Node::NKind Kind) {
@@ -65,7 +81,7 @@ ASTContext &ASTContext::instance() {
   return astContext;
 }
 
-Node *ASTContext::create(Token *Tok) {
+Function *ASTContext::create(Token *Tok) {
   Node Head{};
   Node *Cur = &Head;
 
@@ -75,7 +91,9 @@ Node *ASTContext::create(Token *Tok) {
     Cur = Cur->getNextNode();
   }
 
-  return Head.getNextNode();
+  Function *Prog = new Function;
+  Prog->setBody(Head.getNextNode());
+  Prog->setLocals(Locals);
 }
 
 static bool equal(Token *Tok, std::string Str) {
@@ -87,7 +105,7 @@ static bool equal(Token *Tok, std::string Str) {
 // skip specified string
 static Token *skip(Token *Tok, std::string Str) {
   if (!equal(Tok, Str))
-    error("expect %s", Str.data());
+    logging::error("expect %s", Str.data());
   return Tok->next();
 }
 
@@ -280,11 +298,13 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   // single variable name.
   if (Tok->getKind() == Token::TKind::TK_IDENT) {
     std::string_view IndentName = Tok->getTokenName();
-    Node *Nd = Node::createVarNode(IndentName);
+    Obj *Var = findVar(Tok);
+    if (!Var)
+      Var = newLVar(IndentName);
     *Rest = Tok->next();
-    return Nd;
+    return Node::createVarNode(Var);
   }
 
-  error("Expected an expression");
+  logging::error("Expected an expression");
   return nullptr;
 }
