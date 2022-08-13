@@ -1,0 +1,13 @@
+#ifndef C_KEYWORD_INFO
+#define C_KEYWORD_INFO(Keyword, Expr, Desc)
+#endif
+
+C_KEYWORD_INFO(RETURN,          "return",         "return"    )
+C_KEYWORD_INFO(CHAR,            "char",           "char"      )
+C_KEYWORD_INFO(SHORT,           "short",          "short"     )
+C_KEYWORD_INFO(INT,             "int",            "integer"   )
+C_KEYWORD_INFO(UNSIGNED,        "unsigned",       "unsigned"  )
+C_KEYWORD_INFO(FLOAT,           "float",          "float"     )
+C_KEYWORD_INFO(DOUBLE,          "double",         "double"    )
+
+#undef C_KEYWORD_INFO

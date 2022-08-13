@@ -1,13 +1,16 @@
 #ifndef SRC_TOKENS_H
 #define SRC_TOKENS_H
 
+#include <unordered_map>
+
 class Token {
 public:
   enum class TKind {
-    TK_IDENT, // identifier, 可以是变量名，函数名等
-    TK_PUNCT, // operator. + -
-    TK_NUM,   // number
-    TK_EOF,   // end of file
+    TK_IDENT,   // identifier, 可以是变量名，函数名等
+    TK_PUNCT,   // operator. + -
+    TK_KEYWORD, // keyword. Such as int, return etc.
+    TK_NUM,     // number
+    TK_EOF,     // end of file
   };
 
   Token() = default;
@@ -43,6 +46,36 @@ template <typename ET> bool isa(Token *V) {
   }
   return false;
 }
+
+class KeywordToken : public Token {
+public:
+  enum class KeywordT : uint8_t {
+#define C_KEYWORD_INFO(Keyword, Expr, Desc) KT_##Keyword,
+#include "c_syntax_info.def"
+  };
+
+public:
+  explicit KeywordToken(std::string_view Keyword)
+      : Token(Token::TKind::TK_KEYWORD, nullptr, Keyword.size()),
+        Keyword_(Keyword) {}
+  [[nodiscard]] std::string_view getKeywordName() const { return Keyword_; }
+
+public:
+  static bool isa(const KeywordToken *V) {
+    return V->getKind() == Token::TKind::TK_KEYWORD;
+  }
+
+  static bool isKeyword(std::string &InKeyword) {
+    return StrKeywordMap_.contains(InKeyword);
+  }
+
+private:
+  // @brief for token debug: keyword type -> string
+  static std::unordered_map<KeywordToken::KeywordT, std::string> KeywordStrMap_;
+  // @brief for token parse: string -> keyword type
+  static std::unordered_map<std::string, KeywordToken::KeywordT> StrKeywordMap_;
+  std::string_view Keyword_;
+};
 
 class NumToken : public Token {
 public:

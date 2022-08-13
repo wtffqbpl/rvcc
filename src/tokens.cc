@@ -4,6 +4,20 @@
 #include <string>
 #include <unordered_map>
 
+std::unordered_map<KeywordToken::KeywordT, std::string>
+    KeywordToken::KeywordStrMap_ = {
+#define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
+  {KeywordToken::KeywordT::KT_##Keyword, Expr},
+#include "c_syntax_info.def"
+};
+
+std::unordered_map<std::string, KeywordToken::KeywordT>
+    KeywordToken::StrKeywordMap_ = {
+#define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
+  {Expr, KeywordToken::KeywordT::KT_##Keyword},
+#include "c_syntax_info.def"
+};
+
 /*
  * @brief [a-zA-Z_]
  */
@@ -96,6 +110,11 @@ Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
     Tok = dynamic_cast<Token *>(new IndentToken{Name});
     break;
   }
+  case Token::TKind::TK_KEYWORD: {
+    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
+    Tok = dynamic_cast<Token *>(new KeywordToken{Name});
+    break;
+  }
   case Token::TKind::TK_EOF:
     Tok = dynamic_cast<Token *>(new EOFToken{});
     break;
@@ -146,7 +165,14 @@ Token *TokenContext::tokenize(std::string &&input) {
       do {
         ++It;
       } while (isValidIndent2(*It));
-      Cur->setNext(create(Token::TKind::TK_IDENT, StartPt, It));
+
+      std::string VarName =
+          source_code_.substr(std::distance(source_code_.begin(), StartPt),
+                              std::distance(StartPt, It));
+      if (KeywordToken::isKeyword(VarName))
+        Cur->setNext(create(Token::TKind::TK_KEYWORD, StartPt, It));
+      else
+        Cur->setNext(create(Token::TKind::TK_IDENT, StartPt, It));
       Cur = Cur->next();
       continue;
     }

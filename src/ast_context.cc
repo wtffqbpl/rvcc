@@ -19,9 +19,16 @@ std::unordered_map<Node::NKind, std::string> Node::NodeTypeStrMap_ = {
 #include "node_type.def"
 };
 
+std::unordered_map<std::string_view, KeywordNode::KeywordNT>
+    KeywordNode::StrKeywordTMap_ = {
+#define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
+  {Expr, KeywordNode::KeywordNT::NK_##Keyword},
+#include "c_syntax_info.def"
+};
+
 // 解析一元运算符
 //    unary = ("+" | "-") unary | primary
-Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
+Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd, std::string_view Name) {
   Node *CurNd = nullptr;
   switch (Kind) {
   case Node::NKind::ND_NEG:
@@ -31,6 +38,9 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
   case Node::NKind::ND_EXPR_STMT:
     // There's only Next node.
     CurNd = dynamic_cast<Node *>(new ExprStmtNode{Node::getTypeName(Kind), Nd});
+    break;
+  case Node::NKind::ND_KEYROWD:
+    CurNd = dynamic_cast<Node *>(new KeywordNode{Name, Nd});
     break;
   default:
     logging::error("Cannot handle this type of node: ",
@@ -132,8 +142,20 @@ static Token *skipPunct(Token *Tok, std::string_view Str) {
 }
 
 // parse statement.
-// stmt = exprStmt
+// stmt = "return" expr ";" | exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
+  // "return" expr ";"
+  if (isa<KeywordToken>(Tok)) {
+    std::string_view KeywordName =
+        dynamic_cast<KeywordToken *>(Tok)->getKeywordName();
+    Node *Nd = Node::createUnaryNode(
+        Node::NKind::ND_KEYROWD, createExpr(&Tok, Tok->next()), KeywordName);
+
+    *Rest = skipPunct(Tok, ";");
+    return Nd;
+  }
+
+  // exprStmt
   return createExprStmt(Rest, Tok);
 }
 
