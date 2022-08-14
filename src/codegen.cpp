@@ -20,17 +20,48 @@ ASTContext &ASTContext::instance() {
 }
 
 Node *ASTContext::create(Token *Tok) {
-  Node *node = createImpl(&Tok, Tok);
+  Node Head{};
+  Node *Cur = &Head;
 
-  if (Tok->getKind() != Token::TKind::TK_EOF)
-    error("Extra token.");
+  // if (Tok->getKind() != Token::TKind::TK_EOF)
+  //   error("Extra token.");
+  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+    Cur->setNextNode(createStmt(&Tok, Tok));
+    Cur = Cur->getNextNode();
+  }
 
-  return node;
+  return Head.getNextNode();
 }
 
-// parse expression.
-//  expr = equality
-Node *ASTContext::createImpl(Token **Rest, Token *Tok) {
+// parse statement.
+// stmt = exprStmt
+Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
+  return createExprStmt(Rest, Tok);
+}
+
+// exprStmt = expr ";"
+Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
+  Node *Nd =
+      Node::createUnaryNode(Node::NKind::ND_EXPR_STMT, createExpr(&Tok, Tok));
+  *Rest = skip(Tok, ";");
+  return Nd;
+}
+
+// BNF:
+//    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
+//    program = stmt* // 表示程序是由多个statements(语句)来构成的
+//    stmt = exprStmt  // 语句是由表达式语句构成 (后续还会由其他语句)
+//    exprStmt = expr ";" // 表达式语句是由表达式 + ";" 组成
+//    expr = equality  // 相等性判断
+//    equality = relational ("==" relational | "!=" relational)*
+//    relational = add("<" add | "<=" add | ">" add | ">=" add)*
+//    add = mul ("+" mul | "-" mul)*
+//    mul = primary ("*" primary | "/" primary)
+//    unary = ("+" | "-") unary | primary
+//    primary = "(" expr ")" | num
+
+// expr = exprStmt
+Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
   return createEqualityExpr(Rest, Tok);
 }
 
@@ -172,7 +203,7 @@ Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
 Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   // "(" expr ")"
   if (equal(Tok, "(")) {
-    Node *Nd = createImpl(&Tok, Tok->next());
+    Node *Nd = createExpr(&Tok, Tok->next());
     *Rest = skip(Tok, ")");
     return Nd;
   }
@@ -201,6 +232,15 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
 //            |-----------------|
 //
 
+static CodeGenContext *codeGenContext = nullptr;
+
+CodeGenContext &CodeGenContext::instance() {
+  if (codeGenContext == nullptr) {
+    codeGenContext = new CodeGenContext;
+  }
+  return *codeGenContext;
+}
+
 void CodeGenContext::push() {
   std::cout << "  addi sp, sp, -8" << std::endl;
   std::cout << "  sd a0, 0(sp)" << std::endl;
@@ -216,13 +256,22 @@ void CodeGenContext::pop(const std::string &Reg) {
   --Depth;
 }
 
-void CodeGenContext::codegen() {
+void CodeGenContext::codegen(const Node &ASTTree) {
   genPrologue();
-  genExpr(ASTTreeNode);
+  for (const Node *N = &ASTTree; N; N = N->getNextNode())
+    genStmt(*N);
   genEpilogue();
 
   // if stack is dirty, then report error.
   assert(Depth == 0);
+}
+
+void CodeGenContext::genStmt(const Node &Nd) {
+  if (Nd.getKind() == Node::NKind::ND_EXPR_STMT) {
+    genExpr(Nd.getLHS());
+    return;
+  }
+  error("invalid statement");
 }
 
 void CodeGenContext::genPrologue() {

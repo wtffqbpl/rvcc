@@ -23,6 +23,11 @@ public:
 //    primary = "(" expr ")" | num
   Node *create(Token *Tok);
   Node *createImpl(Token **Rest, Token *Tok);
+
+  Node *createStmt(Token **Rest, Token *Tok);
+  Node *createExprStmt(Token **Rest, Token *Tok);
+  Node *createExpr(Token **Rest, Token *Tok);
+
   Node *createEqualityExpr(Token **Rest, Token *Tok);
   Node *createRelationalExpr(Token **Rest, Token *Tok);
   Node *createAddExpr(Token **Rest, Token *Tok);
@@ -36,16 +41,30 @@ private:
   Token *CurTok;
 };
 
+// 压栈，将结果临时压入栈中备用
+// sp 为栈指针，栈反向向下增长，
+// 当前栈指针的地址就是sp，将a0的值压入栈
+// 不使用寄存器存储的原因是因为需要存储的值的数量
+//                   STACK
+//            |-----------------|  <------ sp
+//            |-----------------|  <------ sp - 8
+//            |-----------------|  <------ sp - 16
+//            |-----------------|  <------ sp - 24
+//            |-----------------|
+//            |-----------------|
+//
 
 class CodeGenContext {
   int Depth = 0;
-  const Node &ASTTreeNode;
 
 public:
-  explicit CodeGenContext(const Node &TreeNode_) : ASTTreeNode(TreeNode_) {};
-  void codegen();
+  explicit CodeGenContext() = default;
+  void codegen(const Node &ASTTree);
+
+  static CodeGenContext &instance();
 
 private:
+  void genStmt(const Node &Nd);
   void genExpr(const Node &Nd);
   void genPrologue();
   void genEpilogue();

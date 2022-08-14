@@ -15,10 +15,13 @@ int main(int argc, char **argv) {
 
   std::string input(argv[1]);
 
+  // generate tokens.
   Token *Tok = Token::instance().tokenize(input);
+
+  // construct ast tree.
   Node &Node = *ASTContext::instance().create(Tok);
 
-  CodeGenContext CGCxt{Node};
-  CGCxt.codegen();
+  // code gen.
+  CodeGenContext::instance().codegen(Node);
   return 0;
 }
