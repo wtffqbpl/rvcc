@@ -19,5 +19,5 @@ add_executable(rvcc
 
 add_test(
   NAME compiler_test
-  COMMAND rvcc 1+2\;\ 3+4\;
+  COMMAND rvcc a=2\;a\;
   )

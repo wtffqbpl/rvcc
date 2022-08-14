@@ -19,9 +19,11 @@ public:
     ND_NEG,       // - (unary operator)
     ND_EQ,        // ==
     ND_NE,        // !=
+    ND_ASSIGN,    // assignment
     ND_LT,        // <
     ND_LE,        // <=
     ND_EXPR_STMT, // expression node
+    ND_VAR,       // variable
   };
 
 private:
@@ -29,6 +31,7 @@ private:
   Node *Next = nullptr;
   Node *LHS = nullptr;
   Node *RHS = nullptr;
+  std::string Name;
   int val = 0;
 
 public:
@@ -37,8 +40,15 @@ public:
   [[nodiscard]] Node *getNextNode() const { return Next; }
   void setNextNode(Node *node_) { Next = node_; }
   [[nodiscard]] Node::NKind getKind() const { return Kind; }
+
   [[nodiscard]] Node &getLHS() const { return *LHS; }
   [[nodiscard]] Node &getRHS() const { return *RHS; }
+
+  [[nodiscard]] std::string &getName() { return Name; }
+  [[nodiscard]] const std::string &getName() const { return Name; }
+  void setVarName(std::string Name_) { Name = Name_; }
+
+  [[nodiscard]] int getVal() { return val; }
 
 public:
   Node() = default;
@@ -48,6 +58,7 @@ public:
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
+  static Node *createVarNode(std::string &Var);
 
 private:
   static Node *newNode(Node::NKind Kind, int Val = 0, Node *LHS = nullptr,

@@ -28,6 +28,7 @@ public:
 private:
   void genStmt(const Node &Nd);
   void genExpr(const Node &Nd);
+  void genAddr(const Node &Nd);
   void genPrologue();
   void genEpilogue();
   void push();

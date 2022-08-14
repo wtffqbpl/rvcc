@@ -62,7 +62,22 @@ Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
 
 // expr = exprStmt
 Node *ASTContext::createExpr(Token **Rest, Token *Tok) {
-  return createEqualityExpr(Rest, Tok);
+  return createAssignExpr(Rest, Tok);
+}
+
+// expr = assignment
+Node *ASTContext::createAssignExpr(Token **Rest, Token *Tok) {
+  // equality
+  Node *Nd = createEqualityExpr(&Tok, Tok);
+
+  // 可能存在递归赋值？ a = b = 1
+  if (equal(Tok, "=")) {
+    Nd = Node::createBinaryNode(Node::NKind::ND_ASSIGN, Nd,
+                                createAssignExpr(&Tok, Tok->next()));
+  }
+
+  *Rest = Tok;
+  return Nd;
 }
 
 // parse equality
@@ -220,6 +235,14 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   // num
   if (Tok->getKind() == Token::TKind::TK_NUM) {
     Node *Nd = Node::createNumNode(Tok->getVal());
+    *Rest = Tok->next();
+    return Nd;
+  }
+
+  // single char variable name.
+  if (Tok->getKind() == Token::TKind::TK_IDENT) {
+    std::string IndentName = Tok->getIdentName();
+    Node *Nd = Node::createVarNode(IndentName);
     *Rest = Tok->next();
     return Nd;
   }

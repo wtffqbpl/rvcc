@@ -17,3 +17,10 @@ Node *Node::createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS) {
 
 // create a new number node.
 Node *Node::createNumNode(int Val) { return newNode(Node::NKind::ND_NUM, Val); }
+
+// create a new variable node.
+Node *Node::createVarNode(std::string &Var) {
+  Node *Nd = newNode(NKind::ND_VAR);
+  Nd->setVarName(Var);
+  return Nd;
+}

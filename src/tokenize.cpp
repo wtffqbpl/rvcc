@@ -48,7 +48,7 @@ Token *Token::tokenize(std::string &input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      Cur->Next = createToken(Token::TKind::TK_NUM, It, It);
+      Cur->setNextToken(createToken(TKind::TK_NUM, It, It));
       Cur = Cur->Next;
 
       auto NumEndPos = getNumberPos(input, It);
@@ -56,6 +56,14 @@ Token *Token::tokenize(std::string &input) {
                                         std::distance(It, NumEndPos)));
       Cur->Len = std::distance(It, NumEndPos);
       It = NumEndPos;
+      continue;
+    }
+
+    // parse single char variable
+    if (achar >= 'a' && achar <= 'z') {
+      Cur->setNextToken(createToken(TKind::TK_IDENT, It, It + 1));
+      Cur = Cur->next();
+      ++It;
       continue;
     }
 
