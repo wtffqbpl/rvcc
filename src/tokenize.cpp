@@ -7,12 +7,9 @@
 #include <string>
 #include <cassert>
 
-static Token *TokenHdl = nullptr;
 Token &Token::instance() {
-  if (TokenHdl == nullptr) {
-    TokenHdl = new Token();
-  }
-  return *TokenHdl;
+  static Token TokenHdl;
+  return TokenHdl;
 }
 
 
@@ -26,8 +23,7 @@ Token *Token::createToken(Token::TKind kind,
 
 std::string::iterator Token::getNumberPos(std::string &input,
                                           std::string::iterator Start) {
-  auto End = input.end();
-  for (; Start != End; ++Start) {
+  for (auto End = input.end(); Start != End; ++Start) {
     char achar = *Start;
     if (!std::isdigit(achar))
       return Start;
@@ -52,10 +48,10 @@ Token *Token::tokenize(std::string &input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      Cur->Next = TokenHdl->createToken(Token::TKind::TK_NUM, It, It);
+      Cur->Next = createToken(Token::TKind::TK_NUM, It, It);
       Cur = Cur->Next;
 
-      auto NumEndPos = TokenHdl->getNumberPos(input, It);
+      auto NumEndPos = getNumberPos(input, It);
       Cur->Val = std::stoi(input.substr(std::distance(input.begin(), It),
                                         std::distance(It, NumEndPos)));
       Cur->Len = std::distance(It, NumEndPos);
@@ -66,7 +62,7 @@ Token *Token::tokenize(std::string &input) {
     // parse operators.
     int PunctLen = readPunct(input, std::distance(input.begin(), It));
     if (PunctLen) {
-      Cur->Next = TokenHdl->createToken(Token::TKind::TK_PUNCT, It, It + PunctLen);
+      Cur->Next = createToken(Token::TKind::TK_PUNCT, It, It + PunctLen);
       Cur = Cur->Next;
       // move string iterator PunctLen length.
       It += PunctLen;
@@ -78,7 +74,7 @@ Token *Token::tokenize(std::string &input) {
   }
 
   // Add EOF operator.
-  Cur->Next = TokenHdl->createToken(Token::TKind::TK_EOF, It, It);
+  Cur->Next = createToken(Token::TKind::TK_EOF, It, It);
 
   return Head.Next;
 }

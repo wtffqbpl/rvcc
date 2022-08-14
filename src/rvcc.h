@@ -1,9 +1,10 @@
+#include "tokenize.h"
+#include <cassert>
+#include <cstdarg>
 #include <iostream>
 #include <memory>
 #include <stack>
-#include <cstdarg>
 #include <string>
-#include <cassert>
 
 static void error(std::string StrFmt, ...) {
   // define a va_list variable.

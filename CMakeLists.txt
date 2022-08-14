@@ -11,13 +11,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build")
 
 add_executable(rvcc 
   src/main.cpp
-  src/codegen.cpp
-  src/parse.cpp
+        src/CGAsm.cpp
+  src/ASTBaseNode.cpp
   src/tokenize.cpp
-)
+  src/ASTContext.cpp)
 
 
 add_test(
   NAME compiler_test
-  COMMAND rvcc 1
+  COMMAND rvcc 1+2\;\ 3+4\;
   )

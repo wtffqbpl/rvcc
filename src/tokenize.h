@@ -19,15 +19,15 @@ public:
 
   static Token &instance();
 
-  std::string::iterator getNumberPos(std::string &input,
-                                            std::string::iterator Start);  
-  static Token *tokenize(std::string &input);
+  Token *tokenize(std::string &input);
 
 private:
   Token *createToken(Token::TKind kind,
                             std::string::iterator Start,
                             std::string::iterator End);
 
+  std::string::iterator getNumberPos(std::string &input,
+                                     std::string::iterator Start);
 
 public:
   [[nodiscard]] TKind getKind() const { return Kind; }

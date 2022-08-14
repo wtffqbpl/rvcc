@@ -34,5 +34,4 @@ private:
   void pop(const std::string &Reg);
 };
 
-
 #endif
