@@ -9,12 +9,14 @@ enable_testing()
 set(CMAKE_CXX_FLAGS "-std=c++2a -g -fno-common")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build")
 
+include_directories(src, include)
 add_executable(rvcc 
   src/main.cpp
-        src/CGAsm.cpp
+  src/CGAsm.cpp
   src/ASTBaseNode.cpp
   src/tokenize.cpp
-  src/ASTContext.cpp)
+  src/ASTContext.cpp
+  include/my_timer.h src/BasicObjects.cpp src/BasicObjects.h include/logs.h)
 
 
 add_test(

@@ -1,5 +1,5 @@
+#include "../src/tokenize.h"
 #include "logs.h"
-#include "tokenize.h"
 #include <cassert>
 #include <cstdarg>
 #include <iostream>
@@ -25,20 +25,16 @@ static Token *skip(Token *Tok, std::string Str) {
   return Tok->next();
 }
 
-static bool inputArgsCheck(int argc, char **argv) {
-  if (argc != 2) {
-    std::cerr << "Invalid arguments.\n";
-    std::cerr << "Usage:\n";
-    std::cerr << "\t ./exec val\n";
-    return false;
-  }
-  return true;
+static inline void inputArgsCheck(int argc, char **argv) {
+  if (argc != 2)
+    logging::error("Invalid arguments.\n", "Usage:\n", "\t ./exec val\n");
 }
 
 static size_t readPunct(std::string &input, std::string::size_type start) {
   if (start + 1 < input.size()) {
     std::string punctStr = input.substr(start, 2);
-    if (punctStr == "==" || punctStr == "!=" || punctStr == "<=" || punctStr == ">=")
+    if (punctStr == "==" || punctStr == "!=" || punctStr == "<=" ||
+        punctStr == ">=")
       return 2;
   }
   return std::ispunct(input[start]) ? 1 : 0;

@@ -7,6 +7,8 @@
 #include "ASTBaseNode.h"
 
 class Token;
+class VarObj;
+class Function;
 
 // Generate AST
 class ASTContext {

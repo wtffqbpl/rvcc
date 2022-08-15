@@ -59,7 +59,7 @@ void CodeGenContext::genStmt(const Node &Nd) {
     genExpr(Nd.getLHS());
     return;
   }
-  error("invalid statement");
+  logging::error("invalid statement");
 }
 
 void CodeGenContext::genPrologue() {
@@ -90,13 +90,13 @@ void CodeGenContext::genEpilogue() {
 
 void CodeGenContext::genAddr(const Node &Nd) {
   if (Nd.getKind() == Node::NKind::ND_VAR) {
-    const std::string &VarName = Nd.getName();
+    const std::string_view &VarName = Nd.getName();
     int Offset = (VarName[0] - 'a' + 1) * 8;
     std::cout << "  addi a0, fp, " << -Offset << std::endl;
     return;
   }
 
-  error("not an lvalue");
+  logging::error("not an lvalue");
 }
 
 void CodeGenContext::genExpr(const Node &Nd) {
@@ -174,5 +174,5 @@ void CodeGenContext::genExpr(const Node &Nd) {
   default:
     break;
   }
-  error("invalid expression");
+  logging::error("invalid expression");
 }

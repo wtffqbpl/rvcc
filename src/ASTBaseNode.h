@@ -7,6 +7,9 @@
 #include <stack>
 #include <string>
 
+class VarObj;
+class Function;
+
 class Node {
 public:
   // AST node type.
@@ -26,14 +29,6 @@ public:
     ND_VAR,       // variable
   };
 
-private:
-  Node::NKind Kind; // node type.
-  Node *Next = nullptr;
-  Node *LHS = nullptr;
-  Node *RHS = nullptr;
-  std::string Name;
-  int val = 0;
-
 public:
   [[nodiscard]] int getVal() const { return val; }
   [[nodiscard]] Node *getNextNode() { return Next; }
@@ -44,11 +39,15 @@ public:
   [[nodiscard]] Node &getLHS() const { return *LHS; }
   [[nodiscard]] Node &getRHS() const { return *RHS; }
 
-  [[nodiscard]] std::string &getName() { return Name; }
-  [[nodiscard]] const std::string &getName() const { return Name; }
-  void setVarName(std::string Name_) { Name = Name_; }
+  // [[nodiscard]] VarObj &getVar() const { return *Var; }
+  // void setVarName(std::string_view Var_) { Var = Var_; }
+  [[nodiscard]] std::string_view getName() { return Name; }
+  [[nodiscard]] std::string_view getName() const { return Name; }
+  void setVarName(std::string_view Name_) { Name = Name_; }
 
   [[nodiscard]] int getVal() { return val; }
+
+  void dump(unsigned Depth = 0);
 
 public:
   Node() = default;
@@ -58,11 +57,20 @@ public:
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
-  static Node *createVarNode(std::string &Var);
+  static Node *createVarNode(std::string_view Var);
 
 private:
   static Node *newNode(Node::NKind Kind, int Val = 0, Node *LHS = nullptr,
                        Node *RHS = nullptr);
+
+private:
+  Node::NKind Kind; // node type.
+  Node *Next = nullptr;
+  Node *LHS = nullptr;
+  Node *RHS = nullptr;
+  // VarObj *Var = nullptr; 	// 存储ND_VAR的变量
+  std::string_view Name; // variable name.
+  int val = 0;
 };
 
 #endif

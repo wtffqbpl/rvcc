@@ -1,6 +1,8 @@
 #include "ASTBaseNode.h"
 #include "ASTContext.h"
 #include "CGAsm.h"
+#include "logs.h"
+#include "my_timer.h"
 #include "rvcc.h"
 #include "tokenize.h"
 #include <cassert>
@@ -11,18 +13,32 @@
 #include <string>
 
 int main(int argc, char **argv) {
-  if (!inputArgsCheck(argc, argv))
-    error("%s: Invalid arguments", argv[0]);
+  inputArgsCheck(argc, argv);
 
   std::string input(argv[1]);
 
   // generate tokens.
-  Token *Tok = Token::instance().tokenize(input);
+  Token *Tok = nullptr;
+  {
+    std::string input(argv[1]);
+    Timer("Tokenize");
+    Tok = TokenContext::instance().tokenize(std::move(input));
+    Tok->dump();
+  }
 
   // construct ast tree.
-  Node &Node = *ASTContext::instance().create(Tok);
+  Node *Node = nullptr;
+  {
+    Timer("AST Construction");
+    Node = ASTContext::instance().create(Tok);
+    Tok->dump();
+  }
 
-  // code gen.
-  CodeGenContext::instance().codegen(Node);
+  // code generation.
+  {
+    Timer("Code generation");
+    CodeGenContext::instance().codegen(*Node);
+  }
+
   return 0;
 }

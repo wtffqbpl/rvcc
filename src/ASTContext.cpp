@@ -4,15 +4,34 @@
 
 #include "ASTContext.h"
 #include "ASTBaseNode.h"
+#include "BasicObjects.h"
 #include "CGAsm.h"
 #include "rvcc.h"
 #include "tokenize.h"
+#include <iostream>
+#include <unordered_map>
 #include <cassert>
 #include <cstdarg>
 #include <iostream>
 #include <memory>
 #include <stack>
 #include <string>
+
+// 在解析时，全部的变量实例都被累加到这个列表中。
+static VarObj *Locals = nullptr;
+
+static VarObj *findVar(Token *Tok) {
+  for (VarObj *Var = Locals; Var; Var = Var->next())
+    if (Var->name() == Tok->getTokenName())
+      return Var;
+  return nullptr;
+}
+
+static VarObj *newLVar(std::string_view Name) {
+  VarObj *Var = new VarObj{Name, Locals};
+  Locals = Var;
+  return Var;
+}
 
 ASTContext &ASTContext::instance() {
   static ASTContext astContext;
@@ -23,13 +42,10 @@ Node *ASTContext::create(Token *Tok) {
   Node Head{};
   Node *Cur = &Head;
 
-  // if (Tok->getKind() != Token::TKind::TK_EOF)
-  //   error("Extra token.");
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
     Cur->setNextNode(createStmt(&Tok, Tok));
     Cur = Cur->getNextNode();
   }
-
   return Head.getNextNode();
 }
 
@@ -241,12 +257,13 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
 
   // single char variable name.
   if (Tok->getKind() == Token::TKind::TK_IDENT) {
-    std::string IndentName = Tok->getIdentName();
+    std::string_view IndentName = Tok->getTokenName();
     Node *Nd = Node::createVarNode(IndentName);
     *Rest = Tok->next();
+
     return Nd;
   }
 
-  error("Expected an expression");
+  logging::error("Expected an expression");
   return nullptr;
 }
