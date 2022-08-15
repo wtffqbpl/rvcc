@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#define DEBUG_TYPE "tokens"
+
 std::unordered_map<KeywordToken::KeywordT, std::string>
     KeywordToken::KeywordStrMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
@@ -90,35 +92,37 @@ TokenContext &TokenContext::instance() {
 
 Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
                             std::string::iterator End) {
-  auto Len = std::distance(Start, End);
-  auto Offset = std::distance(source_code_.begin(), Start);
+  std::string_view::size_type Len = std::distance(Start, End);
+  auto Offset = std::distance(SourceCode_.begin(), Start);
 
   Token *Tok = nullptr;
   switch (Kind) {
   case Token::TKind::TK_NUM: {
-    auto Val = std::stoi(source_code_.substr(Offset, Len));
-    Tok = dynamic_cast<Token *>(new NumToken{Val, static_cast<size_t>(Len)});
+    auto Val = std::stoi(SourceCode_.substr(Offset, Len));
+    Tok = new NumToken{Val, static_cast<size_t>(Len)};
     break;
   }
   case Token::TKind::TK_PUNCT: {
-    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
-    Tok = dynamic_cast<Token *>(new PunctToken{Name});
+    std::string_view Name{SourceCode_.data() + Offset, Len};
+    Tok = new PunctToken{Name};
     break;
   }
   case Token::TKind::TK_IDENT: {
-    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
-    Tok = dynamic_cast<Token *>(new IndentToken{Name});
+    std::string_view Name{SourceCode_.data() + Offset, Len};
+    Tok = new IndentToken{Name};
     break;
   }
   case Token::TKind::TK_KEYWORD: {
-    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
-    Tok = dynamic_cast<Token *>(new KeywordToken{Name});
+    std::string_view Name{SourceCode_.data() + Offset, Len};
+    Tok = new KeywordToken{Name};
     break;
   }
   case Token::TKind::TK_EOF:
-    Tok = dynamic_cast<Token *>(new EOFToken{});
+    Tok = new EOFToken{};
     break;
   default:
+    // logging::error("Unknown token type: ",
+    // std::underlying_type<unsigned>::Kind));
     logging::error("Unknown token type: ", static_cast<unsigned>(Kind));
     break;
   }
@@ -137,12 +141,12 @@ static std::string::iterator getNumber(std::string &input,
 
 Token *TokenContext::tokenize(std::string &&input) {
   // record source code in static TokenContext class.
-  source_code_ = input;
+  SourceCode_ = input;
   Token Head{};
   Token *Cur = &Head;
 
-  auto It = source_code_.begin();
-  for (auto End = source_code_.end(); It != End;) {
+  auto It = SourceCode_.begin();
+  for (auto End = SourceCode_.end(); It != End;) {
     auto achar = *It;
 
     // skip spaces.
@@ -153,7 +157,7 @@ Token *TokenContext::tokenize(std::string &&input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      auto NumEndPos = getNumber(source_code_, It);
+      auto NumEndPos = getNumber(SourceCode_, It);
       Cur->setNext(create(Token::TKind::TK_NUM, It, NumEndPos));
       Cur = Cur->next();
       It += Cur->getLength();
@@ -167,8 +171,8 @@ Token *TokenContext::tokenize(std::string &&input) {
       } while (isValidIndent2(*It));
 
       std::string VarName =
-          source_code_.substr(std::distance(source_code_.begin(), StartPt),
-                              std::distance(StartPt, It));
+          SourceCode_.substr(std::distance(SourceCode_.begin(), StartPt),
+                             std::distance(StartPt, It));
       if (KeywordToken::isKeyword(VarName))
         Cur->setNext(create(Token::TKind::TK_KEYWORD, StartPt, It));
       else
@@ -179,7 +183,7 @@ Token *TokenContext::tokenize(std::string &&input) {
 
     // parse operators.
     int PunctLen =
-        readPunct(source_code_, std::distance(source_code_.begin(), It));
+        readPunct(SourceCode_, std::distance(SourceCode_.begin(), It));
     if (PunctLen) {
       Cur->setNext(create(Token::TKind::TK_PUNCT, It, It + PunctLen));
       Cur = Cur->next();
