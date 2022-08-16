@@ -3,9 +3,9 @@
 
 #include "rvcc.h"
 #include <list>
+#include <map>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 
 class Token;
 class Obj;
@@ -101,7 +101,7 @@ private:
 class NegNode : public Node {
 public:
   explicit NegNode(const std::string_view &Name, Node *LHS = nullptr)
-      : Node(Node::NKind::ND_NE, Name), LHS_(LHS) {}
+      : Node(Node::NKind::ND_NEG, Name), LHS_(LHS) {}
 
   [[nodiscard]] const Node *getLHS() const { return LHS_; }
   [[nodiscard]] Node *getLHS() { return LHS_; }
@@ -165,13 +165,13 @@ public:
   explicit KeywordNode(const std::string_view &KeywordName, Node *L)
       : Node(Node::NKind::ND_KEYROWD,
              Node::getTypeName(Node::NKind::ND_KEYROWD), nullptr),
-        LHS_(L), KeywordName_(KeywordName) {}
+        LHS_(L), KeywordType_(KeywordNode::getKindByName(KeywordName)),
+        KeywordName_(KeywordName) {}
 
   [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
   [[nodiscard]] Node *getLHS() const { return LHS_; }
-  [[nodiscard]] KeywordNT getKeywordType() const {
-    return StrKeyTMap[KeywordName_];
-  }
+  [[nodiscard]] KeywordNT getType() const { return KeywordType_; }
+
   void print(std::ostream &os) const override {
     os << Node::getTypeName(getKind());
   }
@@ -182,13 +182,40 @@ public:
   }
 
 private:
-  static std::unordered_map<std::string_view, KeywordNode::KeywordNT>
-      StrKeyTMap;
+  static KeywordNode::KeywordNT getKindByName(const std::string_view &NameStr) {
+    return KeyStrToTypeMap_[NameStr];
+  }
+
+private:
+  static std::map<const std::string_view, KeywordNode::KeywordNT>
+      KeyStrToTypeMap_;
   Node *LHS_;
+  KeywordNode::KeywordNT KeywordType_;
   const std::string_view &KeywordName_;
 };
 
 class Obj; // old variable info class.
+
+class BlockNode : public Node {
+public:
+  explicit BlockNode(Node *Body)
+      : Node(Node::NKind::ND_BLOCK, Node::getTypeName(Node::NKind::ND_BLOCK)),
+        Body_(Body) {}
+
+  Node *getBody() { return Body_; }
+
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
+
+public:
+  static bool isa(const Node *N) {
+    return N->getKind() == Node::NKind::ND_BLOCK;
+  }
+
+private:
+  Node *Body_;
+};
 
 class VariableNode : public Node {
 public:
@@ -286,6 +313,7 @@ public:
   Function *create(Token *Tok);
 
 private:
+  Node *compoundStmt(Token **Rest, Token *Tok);
   Node *createStmt(Token **Rest, Token *Tok);
   Node *createExprStmt(Token **Rest, Token *Tok);
   Node *createExpr(Token **Rest, Token *Tok);

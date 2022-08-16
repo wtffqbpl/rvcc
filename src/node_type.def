@@ -21,6 +21,7 @@ BINARY_NODE_INFO(LE,               "<=",                       "less or equal th
 BINARY_NODE_INFO(ASSIGN,           "=",                        "assignment"                           )
 UNARY_NODE_INFO(NEG,               "-",                        "unary operator for negation operator" )
 UNARY_NODE_INFO(EXPR_STMT,         "exprision",                "experision node"                      )
+UNARY_NODE_INFO(BLOCK,             "{...}",                    "code block"                           )
 NODE_INFO(KEYROWD,                  "=",                       "assignment"                           )
 NODE_INFO(VAR,                     "[a-zA-Z_][a-zA-Z_0-9]*",   "variable"                             )
 NODE_INFO(NUM,                     "[0-9]*",                   "number"                               )

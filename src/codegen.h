@@ -29,6 +29,7 @@ public:
 private:
   void genStmt(Node *Nd);
   void genKeywordCode(KeywordNode *Keyword);
+  void genBlockCode(BlockNode *BN);
   void genExpr(Node *Nd);
   void genAddr(Node *Nd);
   void genPrologue(Function *Prog);

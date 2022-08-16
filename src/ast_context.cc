@@ -2,7 +2,7 @@
 #include "rvcc.h"
 #include "tokens.h"
 #include <iostream>
-#include <unordered_map>
+#include <map>
 
 // 在解析时，全部的变量实例都被累加到这个列表中。
 static Obj *Locals = nullptr;
@@ -14,8 +14,8 @@ static Obj *findVar(IndentToken *Tok) {
   return nullptr;
 }
 
-std::unordered_map<std::string_view, KeywordNode::KeywordNT>
-    KeywordNode::StrKeyTMap = {
+std::map<const std::string_view, KeywordNode::KeywordNT>
+    KeywordNode::KeyStrToTypeMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
   {Expr, KeywordNode::KeywordNT::NK_##Keyword},
 #include "c_syntax_info.def"
@@ -36,6 +36,9 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd, std::string_view Name) {
     break;
   case Node::NKind::ND_KEYROWD:
     CurNd = new KeywordNode{Name, Nd};
+    break;
+  case Node::NKind::ND_BLOCK:
+    CurNd = new BlockNode{Nd};
     break;
   default:
     logging::error("Cannot handle this type of node: ",
@@ -88,24 +91,6 @@ ASTContext &ASTContext::instance() {
   return astContext;
 }
 
-Function *ASTContext::create(Token *Tok) {
-  Function *Prog = new Function;
-  Node Head{Node::NKind::ND_EXPR_STMT,
-            Node::getTypeName(Node::NKind::ND_EXPR_STMT)};
-  Node *Cur = &Head;
-
-  // stmt* 会有多个statements
-  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-    Cur->setNext(createStmt(&Tok, Tok));
-    Cur = Cur->getNext();
-  }
-
-  Prog->setBody(Head.getNext());
-  Prog->setLocals(Locals);
-
-  return Prog;
-}
-
 static bool equal(std::string_view Name, std::string_view Str) {
   // compare LHS and RHS, if S2
   return Name == Str;
@@ -117,6 +102,39 @@ static Token *skipPunct(Token *Tok, std::string_view Str) {
       dynamic_cast<PunctToken *>(Tok)->getName() != Str)
     logging::error("expect %s", Str.data());
   return Tok->next();
+}
+
+Function *ASTContext::create(Token *Tok) {
+  assert((isa<PunctToken>(Tok) &&
+          ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "{")) &&
+         "program should be started with \"{\".");
+
+  // skip "{"
+  Tok = Tok->next();
+
+  Function *Prog = new Function;
+  Prog->setBody(compoundStmt(&Tok, Tok));
+  Prog->setLocals(Locals);
+
+  return Prog;
+}
+
+Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
+  Node Head{Node::NKind::ND_EXPR_STMT,
+            Node::getTypeName(Node::NKind::ND_EXPR_STMT)};
+  Node *Cur = &Head;
+
+  while (Tok != nullptr &&
+         (!isa<PunctToken>(Tok) ||
+          !::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "}"))) {
+    Cur->setNext(createStmt(&Tok, Tok));
+    Cur = Cur->getNext();
+  }
+
+  // Nd 的 Body存储了 {} 内解析的语句
+  Node *Nd = Node::createUnaryNode(Node::NKind::ND_BLOCK, Head.getNext());
+  *Rest = Tok->next();
+  return Nd;
 }
 
 // parse statement.
@@ -132,6 +150,11 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     *Rest = skipPunct(Tok, ";");
     return Nd;
   }
+
+  // "{" compundStmt
+  if (isa<PunctToken>(Tok) &&
+      ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "{"))
+    return compoundStmt(Rest, Tok->next());
 
   // exprStmt
   return createExprStmt(Rest, Tok);
