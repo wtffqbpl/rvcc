@@ -1,3 +1,6 @@
+#ifndef SRC_RVCC_H
+#define SRC_RVCC_H
+
 #include "../src/tokenize.h"
 #include "logs.h"
 #include <cassert>
@@ -12,15 +15,15 @@ static inline int alignTo(int N, int Align) {
   return (N + Align - 1) / Align * Align;
 }
 
-static bool equal(Token *Tok, std::string Str) {
+static bool equal(std::string_view Name, std::string Str) {
   // compare LHS and RHS, if S2
-  return std::equal(Tok->getLocation(), Tok->getLocation() + Tok->getLength(),
-                    Str.begin());
+  return Name == Str;
 }
 
 // skip specified string
-static Token *skip(Token *Tok, std::string Str) {
-  if (!equal(Tok, Str))
+static Token *skipPunct(Token *Tok, std::string_view Str) {
+  if (!isa<PunctToken>(Tok) ||
+      dynamic_cast<PunctToken *>(Tok)->getName() != Str)
     logging::error("expect %s", Str.data());
   return Tok->next();
 }
@@ -39,3 +42,4 @@ static size_t readPunct(std::string &input, std::string::size_type start) {
   }
   return std::ispunct(input[start]) ? 1 : 0;
 }
+#endif // SRC_RVCC_H

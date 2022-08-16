@@ -31,7 +31,7 @@ static std::string getKindStr(Token::TKind Kind) {
 
 void Token::dump(unsigned StatementIndent, unsigned Depth) {
   // terminator.
-  if (Kind == Token::TKind::TK_EOF)
+  if (Kind_ == Token::TKind::TK_EOF)
     return;
 
   // Update indent depth.
@@ -39,20 +39,20 @@ void Token::dump(unsigned StatementIndent, unsigned Depth) {
 
   for (unsigned i = 0; i < Depth; ++i)
     std::cout << "  ";
-  std::cout << "{KIND, " << getKindStr(Kind) << "}";
-  switch (Kind) {
+  std::cout << "{KIND, " << getKindStr(Kind_) << "}";
+  switch (Kind_) {
   case Token::TKind::TK_NUM:
-    std::cout << ", {VAL, " << Val << "}";
+    dynamic_cast<NumToken *>(this)->print(std::cout);
     break;
   case Token::TKind::TK_PUNCT: {
-    std::string_view TokName = getTokenName();
-    std::cout << ", {SIGN, " << TokName << "}";
-    if (TokName == ";")
+    auto Tok = dynamic_cast<PunctToken *>(this);
+    Tok->print(std::cout);
+    if (Tok->getName() == ";")
       Depth = StatementIndent;
     break;
   }
   case Token::TKind::TK_IDENT:
-    std::cout << ", {NAME, " << getTokenName() << "}";
+    dynamic_cast<IndentToken *>(this)->print(std::cout);
     break;
   default:
     assert("No this type of token.");
@@ -60,7 +60,7 @@ void Token::dump(unsigned StatementIndent, unsigned Depth) {
   }
   std::cout << std::endl;
 
-  Next->dump(StatementIndent, Depth);
+  Next_->dump(StatementIndent, Depth);
 }
 
 TokenContext &TokenContext::instance() {
@@ -68,18 +68,43 @@ TokenContext &TokenContext::instance() {
   return TokenCtx;
 }
 
-Token *TokenContext::create(Token::TKind kind, std::string::iterator start,
-                            std::string::iterator end) {
-  auto *Tok = new Token{kind, nullptr, 0, start,
-                        static_cast<size_t>(std::distance(start, end))};
+// Parse string with position, and generate token
+Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
+                            std::string::iterator End) {
+  auto Len = std::distance(Start, End);
+  auto Offset = std::distance(source_code_.begin(), Start);
+  Token *Tok = nullptr;
+  switch (Kind) {
+  case Token::TKind::TK_NUM: {
+    auto Val = std::stoi(source_code_.substr(Offset, Len));
+    Tok = dynamic_cast<Token *>(new NumToken{Val, static_cast<size_t>(Len)});
+    break;
+  }
+  case Token::TKind::TK_PUNCT: {
+    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
+    Tok = dynamic_cast<Token *>(new PunctToken{Name});
+    break;
+  }
+  case Token::TKind::TK_IDENT: {
+    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
+    Tok = dynamic_cast<Token *>(new IndentToken{Name});
+    break;
+  }
+  case Token::TKind::TK_EOF:
+    Tok = dynamic_cast<Token *>(new EOFToken{});
+    break;
+  default:
+    logging::error("Unknown token type: ", static_cast<unsigned>(Kind));
+    break;
+  }
+
   return Tok;
 }
 
 static std::string::iterator getNumber(std::string &input,
                                        std::string::iterator It) {
   for (auto End = input.end(); It != End; ++It) {
-    char achar = *It;
-    if (!std::isdigit(achar))
+    if (!std::isdigit(*It))
       break;
   }
   return It;
@@ -87,6 +112,7 @@ static std::string::iterator getNumber(std::string &input,
 
 // EOF parser.
 Token *TokenContext::tokenize(std::string &&input) {
+  // The feature of std::move was used for parameter "&&input".
   source_code_ = input;
   Token Head{};
   Token *Cur = &Head;
@@ -103,16 +129,10 @@ Token *TokenContext::tokenize(std::string &&input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      Cur->setNext(create(Token::TKind::TK_NUM, It, It));
-      Cur = Cur->next();
-
       auto NumEndPos = getNumber(source_code_, It);
-      auto Len = std::distance(It, NumEndPos);
-      auto Val = std::stoi(
-          source_code_.substr(std::distance(source_code_.begin(), It), Len));
-      Cur->setVal(Val);
-      Cur->setLen(Len);
-      It += Len;
+      Cur->setNext(create(Token::TKind::TK_NUM, It, NumEndPos));
+      Cur = Cur->next();
+      It += Cur->getLength();
       continue;
     }
 

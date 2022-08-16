@@ -26,7 +26,7 @@ public:
   //    mul = primary ("*" primary | "/" primary)
   //    unary = ("+" | "-") unary | primary
   //    primary = "(" expr ")" | num
-  Node *create(Token *Tok);
+  Function *create(Token *Tok);
 
   Node *createStmt(Token **Rest, Token *Tok);
   Node *createExprStmt(Token **Rest, Token *Tok);

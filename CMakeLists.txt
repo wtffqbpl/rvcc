@@ -16,10 +16,12 @@ add_executable(rvcc
   src/ASTBaseNode.cpp
   src/tokenize.cpp
   src/ASTContext.cpp
-  include/my_timer.h src/BasicObjects.cpp src/BasicObjects.h include/logs.h)
-
-
-add_test(
-  NAME compiler_test
-  COMMAND rvcc a=2\;a\;
+  src/BasicObjects.cpp
+  include/my_timer.h
+  include/logs.h
+  include/rvcc.h
   )
+
+
+# testcase directory.
+add_subdirectory(tests)

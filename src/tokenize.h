@@ -1,6 +1,7 @@
 #ifndef TOKENIZE_H
 #define TOKENIZE_H
 
+#include <iostream>
 #include <string>
 
 class Token {
@@ -14,33 +15,105 @@ public:
 
   Token() = default;
 
-  Token(TKind Kind_, Token *Next_, int Val_, std::string::iterator Loc_,
-        size_t Len_)
-    : Kind(Kind_), Next(Next_), Val(Val_), Loc(Loc_), Len(Len_) {}
+  Token(const Token &) = delete;
+
+  Token(TKind Kind, Token *Next, size_t Len)
+      : Kind_(Kind), Next_(Next), Len_(Len) {}
 
 public:
-  [[nodiscard]] TKind getKind() const { return Kind; }
-  [[nodiscard]] Token *next() const {return Next; }
-  void setNext(Token *Tok_) { Next = Tok_; }
-  [[nodiscard]] int getVal() const { return Val; }
-  void setVal(int Val_) { Val = Val_; }
-  [[nodiscard]] std::string::iterator getLocation() const { return Loc; }
-  [[nodiscard]] std::string::size_type getLength() const { return Len; }
-  void setLen(std::string::size_type Len_) { Len = Len_; }
-  [[nodiscard]] std::string_view getTokenName() {
-    std::string::size_type Start = std::distance(SourceCode.begin(), Loc);
-    return std::string_view{SourceCode.data() + Start, Len};
-  }
+  [[nodiscard]] TKind getKind() const { return Kind_; }
+  [[nodiscard]] Token *next() const { return Next_; }
+  void setNext(Token *Tok_) { Next_ = Tok_; }
+  [[nodiscard]] size_t getLength() const { return Len_; }
 
   void dump(unsigned StatementIndent = 0, unsigned Depth = 0);
 
+protected:
+  virtual void print(std::ostream &os) {}
+
+protected:
+  TKind Kind_;            // kind
+  Token *Next_ = nullptr; // next token
+  size_t Len_;            // length
+};
+
+template <typename ET> bool isa(Token *V) {
+  try {
+    auto *Tok = dynamic_cast<ET *>(V);
+    if (Tok && ET::isa(Tok))
+      return true;
+  } catch (...) {
+    // No need to do anything.
+  }
+  return false;
+}
+
+// 数字Token
+class NumToken : public Token {
+public:
+  explicit NumToken(int Val, size_t Len)
+      : Token(Token::TKind::TK_NUM, nullptr, Len), Val_(Val) {}
+
+  [[nodiscard]] int getVal() const { return Val_; }
+
+  void print(std::ostream &os) override { os << ", {VAL, " << Val_ << "}"; }
+
+public:
+  static bool isa(const NumToken *V) {
+    return V->getKind() == Token::TKind::TK_NUM;
+  }
+
 private:
-  std::string SourceCode;
-  TKind Kind;                 // kind
-  Token *Next;                // next token
-  int Val;                    // value
-  std::string::iterator Loc;  // location
-  std::string::size_type Len; // length
+  int Val_ = 0;
+};
+
+// 运算符Token
+class PunctToken : public Token {
+public:
+  explicit PunctToken(std::string_view Name)
+      : Token(Token::TKind::TK_PUNCT, nullptr, Name.size()), Name_(Name) {}
+
+  [[nodiscard]] std::string_view getName() { return Name_; }
+
+  void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
+
+public:
+  static bool isa(const PunctToken *V) {
+    return V->getKind() == Token::TKind::TK_PUNCT;
+  }
+
+private:
+  std::string_view Name_;
+};
+
+// 字符Token
+class IndentToken : public Token {
+public:
+  explicit IndentToken(std::string_view Name)
+      : Token(Token::TKind::TK_IDENT, nullptr, Name.size()), Name_(Name) {}
+
+  [[nodiscard]] std::string_view getName() const { return Name_; }
+
+  void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
+
+public:
+  static bool isa(const IndentToken *V) {
+    return V->getKind() == Token::TKind::TK_IDENT;
+  }
+
+private:
+  std::string_view Name_;
+};
+
+// 结束符Token
+class EOFToken : public Token {
+public:
+  explicit EOFToken() : Token(Token::TKind::TK_EOF, nullptr, 0) {}
+
+public:
+  static bool isa(const EOFToken *V) {
+    return V->getKind() == Token::TKind::TK_EOF;
+  }
 };
 
 class TokenContext {

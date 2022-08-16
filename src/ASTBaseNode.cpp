@@ -1,31 +1,51 @@
 #include "ASTBaseNode.h"
 #include "BasicObjects.h"
+#include "logs.h"
 #include "tokenize.h"
 #include "unordered_map"
 
-// create a new node.
-Node *Node::newNode(Node::NKind Kind, int Val, Node *LHS, Node *RHS) {
-  Node *Nd = new Node{Kind, Val, LHS, RHS};
-  return Nd;
-}
+std::unordered_map<Node::NKind, std::string> Node::NodeTypeStrMap_ = {
+#define NODE_INFO(Type, Expr, Desc) {Node::NKind::ND_##Type, Desc},
+#include "node_type.def"
+};
 
+// 解析一元运算符
+//    unary = ("+" | "-") unary | primary
 Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
-  return newNode(Kind, 0, Nd);
+  Node *CurNd = nullptr;
+  switch (Kind) {
+  case Node::NKind::ND_NEG:
+    // There's only LSH node.
+    CurNd = dynamic_cast<Node *>(new NegNode{Node::getTypeName(Kind), Nd});
+    break;
+  case Node::NKind::ND_EXPR_STMT:
+    // There's only Next node.
+    CurNd = dynamic_cast<Node *>(new ExprStmtNode{Node::getTypeName(Kind), Nd});
+    break;
+  default:
+    logging::error("Cannot handle this type of node: ",
+                   static_cast<unsigned>(Kind));
+    break;
+  }
+
+  return CurNd;
 }
 
 // create a new binary tree node.
 Node *Node::createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS) {
-  return newNode(Kind, 0, LHS, RHS);
+  return dynamic_cast<Node *>(
+      new BinaryNode{Kind, Node::getTypeName(Kind), LHS, RHS});
 }
 
 // create a new number node.
-Node *Node::createNumNode(int Val) { return newNode(Node::NKind::ND_NUM, Val); }
+Node *Node::createNumNode(int Val) {
+  return dynamic_cast<Node *>(
+      new NumNode{Node::getTypeName(NKind::ND_NEG), Val});
+}
 
 // create a new variable node.
-Node *Node::createVarNode(std::string_view Var) {
-  Node *Nd = newNode(NKind::ND_VAR);
-  Nd->setVarName(Var);
-  return Nd;
+Node *Node::createVarNode(VarObj *Var) {
+  return dynamic_cast<Node *>(new VariableNode{Var});
 }
 
 static VarObj *Locals = nullptr;
@@ -52,16 +72,7 @@ void Node::dump(unsigned Depth) {
   // info indent.
   for (unsigned i = 0; i < Depth; ++i)
     std::cout << "  ";
-  std::cout << "{TYPE, " << getNodeTypeName(Kind) << "}";
+  std::cout << "{TYPE, " << getNodeTypeName(Kind_) << "}";
   ++Depth;
   std::cout << std::endl;
-
-  // children
-  if (LHS)
-    LHS->dump(Depth);
-  if (RHS)
-    RHS->dump(Depth);
-
-  if (Next != nullptr)
-    Next->dump(--Depth);
 }

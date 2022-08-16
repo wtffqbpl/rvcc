@@ -21,15 +21,15 @@ class CodeGenContext {
 
 public:
   explicit CodeGenContext() = default;
-  void codegen(const Node &ASTTree);
+  void codegen(Function *Prog);
 
   static CodeGenContext &instance();
 
 private:
-  void genStmt(const Node &Nd);
-  void genExpr(const Node &Nd);
-  void genAddr(const Node &Nd);
-  void genPrologue();
+  void genStmt(Node *Nd);
+  void genExpr(Node *Nd);
+  void genAddr(Node *Nd);
+  void genPrologue(Function *Prog);
   void genEpilogue();
   void push();
   void pop(const std::string &Reg);
