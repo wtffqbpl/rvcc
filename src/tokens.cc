@@ -1,19 +1,13 @@
-#include "rvcc.h"
 #include "tokens.h"
+#include "rvcc.h"
 #include <iostream>
+#include <map>
 #include <string>
 #include <unordered_map>
 
 #define DEBUG_TYPE "tokens"
 
-std::unordered_map<KeywordToken::KeywordT, std::string>
-    KeywordToken::KeywordStrMap_ = {
-#define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
-  {KeywordToken::KeywordT::KT_##Keyword, Expr},
-#include "c_syntax_info.def"
-};
-
-std::unordered_map<std::string, KeywordToken::KeywordT>
+std::map<const std::string_view, KeywordToken::KeywordT>
     KeywordToken::StrKeywordMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
   {Expr, KeywordToken::KeywordT::KT_##Keyword},

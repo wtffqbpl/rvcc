@@ -23,7 +23,8 @@ std::map<const std::string_view, KeywordNode::KeywordNT>
 
 // 解析一元运算符
 //    unary = ("+" | "-") unary | primary
-Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd, std::string_view Name) {
+Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd,
+                            const std::string_view &Name) {
   Node *CurNd = nullptr;
   switch (Kind) {
   case Node::NKind::ND_NEG:
@@ -112,7 +113,7 @@ Function *ASTContext::create(Token *Tok) {
   // skip "{"
   Tok = Tok->next();
 
-  Function *Prog = new Function;
+  auto *Prog = new Function;
   Prog->setBody(compoundStmt(&Tok, Tok));
   Prog->setLocals(Locals);
 
@@ -142,7 +143,7 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   // "return" expr ";"
   if (isa<KeywordToken>(Tok)) {
-    std::string_view KeywordName =
+    const std::string_view &KeywordName =
         dynamic_cast<KeywordToken *>(Tok)->getKeywordName();
     Node *Nd = Node::createUnaryNode(
         Node::NKind::ND_KEYROWD, createExpr(&Tok, Tok->next()), KeywordName);

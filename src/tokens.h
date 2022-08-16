@@ -1,7 +1,9 @@
 #ifndef SRC_TOKENS_H
 #define SRC_TOKENS_H
 
-#include <unordered_map>
+#include <iostream>
+#include <map>
+#include <string_view>
 
 class Token {
 public:
@@ -47,26 +49,38 @@ public:
   };
 
 public:
-  explicit KeywordToken(std::string_view Keyword)
+  explicit KeywordToken(const std::string_view &Keyword)
       : Token(Token::TKind::TK_KEYWORD, nullptr, Keyword.size()),
-        Keyword_(Keyword) {}
-  [[nodiscard]] std::string_view getKeywordName() const { return Keyword_; }
+        KeywordType_(getKeywordTypeByName(Keyword)), Keyword_(Keyword) {}
+  [[nodiscard]] const std::string_view &getKeywordName() const {
+    return Keyword_;
+  }
 
 public:
   static bool isa(const Token *V) {
     return V->getKind() == Token::TKind::TK_KEYWORD;
   }
 
-  static bool isKeyword(std::string &InKeyword) {
+  static bool isKeyword(const std::string_view &InKeyword) {
     return StrKeywordMap_.contains(InKeyword);
   }
 
+  [[nodiscard]] KeywordToken::KeywordT getKeywordType() const {
+    return KeywordType_;
+  }
+
 private:
-  // @brief for token debug: keyword type -> string
-  static std::unordered_map<KeywordToken::KeywordT, std::string> KeywordStrMap_;
+  static KeywordToken::KeywordT
+  getKeywordTypeByName(const std::string_view &Keyword) {
+    return StrKeywordMap_[Keyword];
+  }
+
+private:
   // @brief for token parse: string -> keyword type
-  static std::unordered_map<std::string, KeywordToken::KeywordT> StrKeywordMap_;
-  std::string_view Keyword_;
+  static std::map<const std::string_view, KeywordToken::KeywordT>
+      StrKeywordMap_;
+  KeywordToken::KeywordT KeywordType_;
+  const std::string_view &Keyword_;
 };
 
 class NumToken : public Token {

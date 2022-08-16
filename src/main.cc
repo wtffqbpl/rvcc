@@ -1,34 +1,56 @@
 #include "ast_context.h"
 #include "codegen.h"
+#include "my_timer.h"
 #include "rvcc.h"
 #include "tokens.h"
-#include "my_timer.h"
-#include <iostream>
+#include <fstream>
+#include <sstream>
 
-class CompileOptions {
-public:
-  CompileOptions() = default;
-  static CompileOptions &instance();
+struct CompilerOptions {
+  bool ReadFromFile = false;
+  char *filename = nullptr;
+  bool Debug = false; // debug options.
 };
 
-CompileOptions &CompileOptions::instance() {
-  static CompileOptions compileOpts{};
-  return compileOpts;
-}
+static CompilerOptions CompilerOpts;
 
-class Frontend {
-  Frontend() = default;
-  static Frontend &instance();
-};
+std::string &&getSourceCode() {
+  if (CompilerOpts.ReadFromFile) {
+    logging::info("Reading source code from file: ", CompilerOpts.filename);
+    std::stringstream Oss;
+    std::ifstream SrcFileHdl(CompilerOpts.filename);
+    Oss << SrcFileHdl.rdbuf();
+    return std::move(Oss.str());
+  }
 
-Frontend &Frontend::instance() {
-  static Frontend frontend{};
-  return frontend;
+  logging::info("Reading source code from commandline");
+  return std::move(std::string(CompilerOpts.filename));
 }
 
 static inline void inputArgsCheck(int argc, char **argv) {
-  if (argc != 2)
-    logging::error("Invalid arguments.\n", "Usage:\n", "\t./exec val\n");
+  if (argc < 2)
+    logging::error("\nInvalid arguments.\n", "Usage:\n",
+                   "\t./exec source_code\n");
+
+  // default actions.
+  for (unsigned i = 1; i < argc;) {
+    if (std::string_view(argv[i]) == "--debug")
+      CompilerOpts.Debug = true;
+
+    /*
+     * --from-file = 1 --- read source code from file.
+     * no --from-file  --- read source code from first argument.
+     */
+    if (std::string_view(argv[i]) == "--from-file") {
+      CompilerOpts.ReadFromFile = true;
+      CompilerOpts.filename = argv[++i];
+    }
+
+    ++i;
+  }
+
+  if (!CompilerOpts.ReadFromFile)
+    CompilerOpts.filename = argv[1];
 }
 
 // testcase:
@@ -51,25 +73,23 @@ int main(int argc, char **argv) {
   inputArgsCheck(argc, argv);
 
   // generate tokens.
-  Token *Tok = nullptr;
+  Token *Tok;
   {
-    std::string input{argv[1]};
-    Timer("Tokenize");
+    std::string input = getSourceCode();
+    logging::Timer TokenizeTmr{"Tokenize"};
     Tok = TokenContext::instance().tokenize(std::move(input));
-    Tok->dump();
   }
 
   // construct ast tree.
-  Function *Prog = nullptr;
+  Function *Prog;
   {
-    Timer("AST Construction");
+    logging::Timer ASTTmr{"AST Construction"};
     Prog = ASTContext::instance().create(Tok);
-    Tok->dump();
   }
 
   // code generation.
   {
-    Timer("Code generation");
+    logging::Timer CodegenTmr{"Code generation"};
     CodeGenContext::instance().codegen(Prog);
   }
 

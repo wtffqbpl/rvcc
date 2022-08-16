@@ -39,7 +39,7 @@ public:
   void setNext(Node *Next) { Next_ = Next; }
 
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd,
-                               std::string_view = "");
+                               const std::string_view &Name = "");
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
   static Node *createVarNode(Obj *Var);

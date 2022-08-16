@@ -3,11 +3,15 @@
 #endif
 
 C_KEYWORD_INFO(RETURN,          "return",         "return"    )
+
 C_KEYWORD_INFO(CHAR,            "char",           "char"      )
 C_KEYWORD_INFO(SHORT,           "short",          "short"     )
 C_KEYWORD_INFO(INT,             "int",            "integer"   )
 C_KEYWORD_INFO(UNSIGNED,        "unsigned",       "unsigned"  )
 C_KEYWORD_INFO(FLOAT,           "float",          "float"     )
 C_KEYWORD_INFO(DOUBLE,          "double",         "double"    )
+
+C_KEYWORD_INFO(IF,              "if",             "if"        )
+C_KEYWORD_INFO(ELSE,            "else",           "else"      )
 
 #undef C_KEYWORD_INFO

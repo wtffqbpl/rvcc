@@ -5,6 +5,8 @@
 #include <iostream>
 #include <string_view>
 
+namespace logging {
+
 class Timer {
 public:
   Timer(const std::string_view &Title) : Title_(Title) {
@@ -25,5 +27,7 @@ private:
   const std::string_view &Title_;
   std::chrono::high_resolution_clock::time_point Start_;
 };
+
+} // end of namespace logging
 
 #endif // INCLUDE_TIMER_H
