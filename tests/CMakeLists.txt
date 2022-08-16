@@ -62,3 +62,6 @@ add_test(NAME 12_2 COMMAND rvcc "{ foo2=70; bar4=4;return foo2+bar4; }")
 
 # [13] support {...}
 add_test(NAME 13_1 COMMAND rvcc "{ 1; {2;} return 3; }")
+
+# [14] support empty statements.
+add_test(NAME 14_1 COMMAND rvcc "{ ; ; ; return 1 + 2; }")

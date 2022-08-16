@@ -160,8 +160,16 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   return createExprStmt(Rest, Tok);
 }
 
-// exprStmt = expr ";"
+// exprStmt = expr? ";"
 Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
+  // ";" -- aka empty statement
+  if (isa<PunctToken>(Tok) &&
+      ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), ";")) {
+    *Rest = Tok->next();
+    return new BlockNode{nullptr};
+  }
+
+  // expr ";"
   Node *Nd = Node::createUnaryNode(Node::NKind::ND_EXPR_STMT,
                                    createExpr(&Tok, Tok));
   *Rest = skipPunct(Tok, ";");

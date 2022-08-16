@@ -302,9 +302,10 @@ public:
 
   // BNF:
   //    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
-  //    program = stmt* // 表示程序是由多个statements(语句)来构成的
+  //    program = "{" compoundStmt // 表示程序是由多个statements(语句)来构成的
+  //    compoundStmt = stmt* "}"
   //    stmt = "return" expr ";" | exprStmt  // 语句是由表达式语句构成,
-  //    同时还包含return语句 exprStmt = expr ";" // 表达式语句是由表达式 + ";"
+  //    同时还包含return语句 exprStmt = expr? ";" // 表达式语句是由表达式 + ";"
   //    组成 expr = assign assign = equality ("=" assign)? equality = relational
   //    ("==" relational | "!=" relational)* relational = add("<" add | "<=" add
   //    | ">" add | ">=" add)* add = mul ("+" mul | "-" mul)* mul = primary ("*"
