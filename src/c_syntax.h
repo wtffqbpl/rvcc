@@ -9,7 +9,8 @@ enum class CKType : unsigned {
 };
 
 enum class PTType : unsigned {
-
+#define C_PUNCTUATION_INFO(Keyword, Expr, Desc) PT_##Keyword,
+#include "c_syntax_info.def"
 };
 
 } // end of namespace c_syntax
