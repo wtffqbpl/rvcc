@@ -258,8 +258,6 @@ private:
   Node *Exiting_;
 };
 
-class Obj; // old variable info class.
-
 class BlockNode : public Node {
 public:
   explicit BlockNode(Node *Body)
@@ -279,6 +277,23 @@ public:
 
 private:
   Node *Body_;
+};
+
+// Local variable
+class Obj {
+public:
+  explicit Obj(const std::string_view Name, Obj *Next)
+      : Name_(Name), Next_(Next), Offset_(0) {}
+
+  [[nodiscard]] Obj *next() { return Next_; }
+  [[nodiscard]] std::string_view name() const { return Name_; }
+  [[nodiscard]] int offset() const { return Offset_; }
+  void setOffset(int Offset) { Offset_ = Offset; }
+
+private:
+  Obj *Next_;                   // next obj.
+  const std::string_view Name_; // variable name. TODO: Using string_view
+  int Offset_;                  // fp offset.
 };
 
 class VariableNode : public Node {
@@ -301,6 +316,7 @@ public:
         Old_Obj_(ObjOld) {}
 
   [[nodiscard]] Obj &getObj() const { return *Old_Obj_; }
+  [[nodiscard]] std::string_view getName() const { return Old_Obj_->name(); }
   void print(std::ostream &os) const override {
     os << Node::getTypeName(getKind());
   }
@@ -311,23 +327,6 @@ public:
 private:
   VarInfo *Obj_ = nullptr;
   Obj *Old_Obj_ = nullptr;
-};
-
-// Local variable
-class Obj {
-public:
-  explicit Obj(const std::string_view Name, Obj *Next)
-      : Name_(Name), Next_(Next), Offset_(0) {}
-
-  [[nodiscard]] Obj *next() { return Next_; }
-  [[nodiscard]] std::string_view name() const { return Name_; }
-  [[nodiscard]] int offset() const { return Offset_; }
-  void setOffset(int Offset) { Offset_ = Offset; }
-
-private:
-  Obj *Next_;                   // next obj.
-  const std::string_view Name_; // variable name. TODO: Using string_view
-  int Offset_;                  // fp offset.
 };
 
 // Function object.
