@@ -1,8 +1,9 @@
 #include "ast_context.h"
+#include "c_syntax.h"
 #include "rvcc.h"
 #include "tokens.h"
 #include <iostream>
-#include <map>
+#include <unordered_map>
 
 // 在解析时，全部的变量实例都被累加到这个列表中。
 static Obj *Locals = nullptr;
@@ -14,17 +15,45 @@ static Obj *findVar(IndentToken *Tok) {
   return nullptr;
 }
 
-std::map<const std::string_view, KeywordNode::KeywordNT>
-    KeywordNode::KeyStrToTypeMap_ = {
+KeywordNode::KeywordNode(c_syntax::CKType KeywordType, Node *Body)
+    : Node(NKind::ND_KEYROWD, getTypeName(NKind::ND_KEYROWD), nullptr),
+      BodyNode_(Body) {
+  static const std::unordered_map<c_syntax::CKType, const std::string_view>
+      KeyStrToTypeMap = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
-  {Expr, KeywordNode::KeywordNT::NK_##Keyword},
+  {c_syntax::CKType::CK_##Keyword, Expr},
 #include "c_syntax_info.def"
-};
+      };
+
+  KeywordType_ = KeywordType;
+  assert(KeyStrToTypeMap.count(KeywordType_) &&
+         "Current map should contains keyword.");
+  KeywordName_ = KeyStrToTypeMap.at(KeywordType_);
+}
+
+Node *Node::createKeywordNode(c_syntax::CKType Kind, Node *N1, Node *N2,
+                              Node *N3) {
+  Node *Nd = nullptr;
+  switch (Kind) {
+  case c_syntax::CKType::CK_IF:
+  case c_syntax::CKType::CK_ELSE:
+    Nd = new IfCondNode{Kind, N1 /* Cond */, N2 /* Body */, N3 /* ElseN */};
+    break;
+  case c_syntax::CKType::CK_RETURN:
+    Nd = new KeywordNode{Kind, N1};
+    break;
+  default:
+    logging::unreachable("cannot handle this keyword type: ",
+                         static_cast<unsigned>(Kind));
+    break;
+  }
+
+  return Nd;
+}
 
 // 解析一元运算符
 //    unary = ("+" | "-") unary | primary
-Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd,
-                            const std::string_view &Name) {
+Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
   Node *CurNd = nullptr;
   switch (Kind) {
   case Node::NKind::ND_NEG:
@@ -34,9 +63,6 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd,
   case Node::NKind::ND_EXPR_STMT:
     // There's only Next node.
     CurNd = new ExprStmtNode{Node::getTypeName(Kind), Nd};
-    break;
-  case Node::NKind::ND_KEYROWD:
-    CurNd = new KeywordNode{Name, Nd};
     break;
   case Node::NKind::ND_BLOCK:
     CurNd = new BlockNode{Nd};
@@ -101,7 +127,7 @@ static bool equal(std::string_view Name, std::string_view Str) {
 static Token *skipPunct(Token *Tok, std::string_view Str) {
   if (!isa<PunctToken>(Tok) ||
       dynamic_cast<PunctToken *>(Tok)->getName() != Str)
-    logging::error("expect %s", Str.data());
+    logging::error("expect ", Str.data());
   return Tok->next();
 }
 
@@ -139,16 +165,45 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 }
 
 // parse statement.
-// stmt = "return" expr ";" | exprStmt
+// stmt = "return" expr ";"
+//        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "{" compoundStmt
+//        | exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   // "return" expr ";"
-  if (isa<KeywordToken>(Tok)) {
-    const std::string_view &KeywordName =
-        dynamic_cast<KeywordToken *>(Tok)->getKeywordName();
-    Node *Nd = Node::createUnaryNode(
-        Node::NKind::ND_KEYROWD, createExpr(&Tok, Tok->next()), KeywordName);
-
+  if (isa<KeywordToken>(Tok) &&
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+       c_syntax::CKType::CK_RETURN)) {
+    c_syntax::CKType KeywordType =
+        dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
+    Node *Nd =
+        Node::createKeywordNode(KeywordType, createExpr(&Tok, Tok->next()));
     *Rest = skipPunct(Tok, ";");
+    return Nd;
+  }
+
+  // parse if statement
+  // "if" "(" expr ")" stmt ("else" stmt)?
+  if (isa<KeywordToken>(Tok) &&
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+       c_syntax::CKType::CK_IF)) {
+    KeywordToken *KT = dynamic_cast<KeywordToken *>(Tok);
+    IfCondNode *Nd = dynamic_cast<IfCondNode *>(
+        Node::createKeywordNode(KT->getKeywordType(), nullptr, nullptr));
+    Tok = skipPunct(Tok->next(), "(");
+    Nd->setCond(createExpr(&Tok, Tok));
+    Tok = skipPunct(Tok, ")");
+
+    // stmt, 符合条件后的语句
+    Nd->setBody(createStmt(&Tok, Tok));
+
+    // ("else" stmt)? 不符合条件后的语句
+    if (isa<KeywordToken>(Tok) &&
+        (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+         c_syntax::CKType::CK_ELSE))
+      Nd->setElseN(createStmt(&Tok, Tok->next()));
+
+    *Rest = Tok;
     return Nd;
   }
 

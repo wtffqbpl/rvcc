@@ -1,4 +1,5 @@
 #include "tokens.h"
+#include "c_syntax.h"
 #include "rvcc.h"
 #include <iostream>
 #include <map>
@@ -7,10 +8,10 @@
 
 #define DEBUG_TYPE "tokens"
 
-std::map<const std::string_view, KeywordToken::KeywordT>
+std::map<const std::string_view, c_syntax::CKType>
     KeywordToken::StrKeywordMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
-  {Expr, KeywordToken::KeywordT::KT_##Keyword},
+  {Expr, c_syntax::CKType::CK_##Keyword},
 #include "c_syntax_info.def"
 };
 
@@ -98,17 +99,17 @@ Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
   }
   case Token::TKind::TK_PUNCT: {
     std::string_view Name{SourceCode_.data() + Offset, Len};
-    Tok = new PunctToken{Name};
+    Tok = new PunctToken{std::move(Name)};
     break;
   }
   case Token::TKind::TK_IDENT: {
     std::string_view Name{SourceCode_.data() + Offset, Len};
-    Tok = new IndentToken{Name};
+    Tok = new IndentToken{std::move(Name)};
     break;
   }
   case Token::TKind::TK_KEYWORD: {
     std::string_view Name{SourceCode_.data() + Offset, Len};
-    Tok = new KeywordToken{Name};
+    Tok = new KeywordToken{std::move(Name)};
     break;
   }
   case Token::TKind::TK_EOF:

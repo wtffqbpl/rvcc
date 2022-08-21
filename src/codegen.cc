@@ -1,5 +1,6 @@
-#include "ast_context.h"
 #include "codegen.h"
+#include "ast_context.h"
+#include "c_syntax.h"
 #include "rvcc.h"
 #include <iostream>
 
@@ -47,18 +48,41 @@ void CodeGenContext::codegen(Function *Prog) {
   genEpilogue();
 }
 
-void CodeGenContext::genKeywordCode(KeywordNode *Keyword) {
-  KeywordNode::KeywordNT Type = Keyword->getType();
-  if (Type == KeywordNode::KeywordNT::NK_RETURN) {
-    genExpr(Keyword->getLHS());
+void CodeGenContext::genKeywordCode(KeywordNode *KNode) {
+  c_syntax::CKType Type = KNode->getKeywordType();
+  switch (Type) {
+  case c_syntax::CKType::CK_RETURN:
+    genExpr(KNode->getBody());
     // 无条件跳转语句，跳转到 .L.return 段
     // j offset 是 jal x0, offset 的别名指令
     std::cout << "  j .L.return\n";
-    return;
+    break;
+  case c_syntax::CKType::CK_IF: {
+    // generate if statement.
+    auto *IfNode = dynamic_cast<IfCondNode *>(KNode);
+    // code body counting.
+    unsigned C = IfCondNode::getCount();
+    // generate if condition statement.
+    genExpr(IfNode->getCond());
+    // check whether result is 0, jump to else label when result is 0.
+    std::cout << "  beqz a0, .L.else." << C << std::endl;
+    // generate if body statement.
+    genStmt(IfNode->getBody());
+    // jump to exiting body.
+    std::cout << "  j .L.end." << C << std::endl;
+    // generate else code body
+    std::cout << "  .L.else." << C << std::endl;
+    if (IfNode->getElse())
+      genStmt(IfNode->getElse());
+    // end label for if statement.
+    std::cout << ".L.end." << C << std::endl;
+    break;
   }
-
-  logging::error("Other type of keyword cannot be implemented yet.",
-                 static_cast<uint8_t>(Type));
+  default:
+    logging::error("Other type of keyword cannot be implemented yet.",
+                   static_cast<uint8_t>(Type));
+    break;
+  }
 }
 
 void CodeGenContext::genBlockCode(BlockNode *BN) {

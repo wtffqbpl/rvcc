@@ -1,6 +1,7 @@
 #ifndef SRC_AST_CONTEXT_H
 #define SRC_AST_CONTEXT_H
 
+#include "c_syntax.h"
 #include "rvcc.h"
 #include <list>
 #include <map>
@@ -32,14 +33,12 @@ public:
                 Node *Next = nullptr)
       : Kind_(Kind), Name_(Name), Next_(Next) {}
 
-  [[nodiscard]] std::string_view getName() { return Name_; }
-  [[nodiscard]] std::string_view getName() const { return Name_; }
   [[nodiscard]] Node *getNext() { return Next_; }
-  [[nodiscard]] Node *getNext() const { return Next_; }
   void setNext(Node *Next) { Next_ = Next; }
 
-  static Node *createUnaryNode(Node::NKind Kind, Node *Nd,
-                               const std::string_view &Name = "");
+  static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
+  static Node *createKeywordNode(c_syntax::CKType Kind, Node *N1,
+                                 Node *N2 = nullptr, Node *N3 = nullptr);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
   static Node *createVarNode(Obj *Var);
@@ -137,7 +136,7 @@ private:
 
 class ExprStmtNode : public Node {
 public:
-  explicit ExprStmtNode(const std::string_view &Name, Node *Child)
+  explicit ExprStmtNode(const std::string_view &&Name, Node *Child)
       : Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
 
   [[nodiscard]] Node *getChild() const { return Child_; }
@@ -156,24 +155,15 @@ private:
 
 class KeywordNode : public Node {
 public:
-  enum class KeywordNT : uint8_t {
-#define C_KEYWORD_INFO(Keyword, Expr, Desc) NK_##Keyword,
-#include "c_syntax_info.def"
-  };
-
-public:
-  explicit KeywordNode(const std::string_view &KeywordName, Node *L)
-      : Node(Node::NKind::ND_KEYROWD,
-             Node::getTypeName(Node::NKind::ND_KEYROWD), nullptr),
-        LHS_(L), KeywordType_(KeywordNode::getKindByName(KeywordName)),
-        KeywordName_(KeywordName) {}
+  explicit KeywordNode(c_syntax::CKType KeywordType, Node *L);
 
   [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
-  [[nodiscard]] Node *getLHS() const { return LHS_; }
-  [[nodiscard]] KeywordNT getType() const { return KeywordType_; }
+  [[nodiscard]] Node *getBody() const { return BodyNode_; }
+  [[nodiscard]] c_syntax::CKType getKeywordType() const { return KeywordType_; }
+  void setBody(Node *Body) { BodyNode_ = Body; }
 
   void print(std::ostream &os) const override {
-    os << Node::getTypeName(getKind());
+    os << getKeywordName() << " " << Node::getTypeName(getKind());
   }
 
 public:
@@ -182,16 +172,64 @@ public:
   }
 
 private:
-  static KeywordNode::KeywordNT getKindByName(const std::string_view &NameStr) {
-    return KeyStrToTypeMap_[NameStr];
+  Node *BodyNode_;
+  c_syntax::CKType KeywordType_;
+  std::string_view KeywordName_;
+};
+
+/*
+ * @brief
+ *        if (cond) {
+ *          // BodyNode
+ *        } else {
+ *          // ElseNode
+ *        }
+ *
+ *   This if-statement source code will generate following code:
+ *      cond code
+ *      beqz cond else  //  if condition is false, then goto else block.
+ *      body code
+ *      jump to end
+ *   .L.else
+ *      Else code
+ *   .L.end
+ */
+class IfCondNode : public KeywordNode {
+public:
+  explicit IfCondNode(c_syntax::CKType KeywordType, Node *Cond, Node *Body,
+                      Node *ElseN)
+      : KeywordNode(KeywordType, Body), CondNode_(Cond), ElseNode_(ElseN) {}
+
+  [[nodiscard]] Node *getCond() const { return CondNode_; }
+  [[nodiscard]] Node *getElse() const { return ElseNode_; }
+
+  void setCond(Node *CondNode) { CondNode_ = CondNode; }
+  void setElseN(Node *ElseN) { ElseNode_ = ElseN; }
+
+public:
+  static bool isa(const KeywordNode *N) {
+    switch (N->getKeywordType()) {
+    case c_syntax::CKType::CK_IF:
+    case c_syntax::CKType::CK_ELSE:
+      return true;
+    default:
+      break;
+    }
+
+    return false;
+  }
+
+  /*
+   * @brief Count if-statement
+   */
+  static unsigned getCount() {
+    static unsigned Count = 1;
+    return Count++;
   }
 
 private:
-  static std::map<const std::string_view, KeywordNode::KeywordNT>
-      KeyStrToTypeMap_;
-  Node *LHS_;
-  KeywordNode::KeywordNT KeywordType_;
-  const std::string_view &KeywordName_;
+  Node *CondNode_;
+  Node *ElseNode_;
 };
 
 class Obj; // old variable info class.
@@ -304,7 +342,10 @@ public:
   //    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
   //    program = "{" compoundStmt // 表示程序是由多个statements(语句)来构成的
   //    compoundStmt = stmt* "}"
-  //    stmt = "return" expr ";" | exprStmt  // 语句是由表达式语句构成,
+  //    stmt = "return" expr ";"
+  //           | "if" "(" expr ")" stmt ("else" stmt)?
+  //           | "{" compoundStmt
+  //           | exprStmt
   //    同时还包含return语句 exprStmt = expr? ";" // 表达式语句是由表达式 + ";"
   //    组成 expr = assign assign = equality ("=" assign)? equality = relational
   //    ("==" relational | "!=" relational)* relational = add("<" add | "<=" add

@@ -75,7 +75,8 @@ int main(int argc, char **argv) {
   // generate tokens.
   Token *Tok;
   {
-    std::string input = getSourceCode();
+    // std::string input = getSourceCode();
+    std::string input{argv[1]};
     logging::Timer TokenizeTmr{"Tokenize"};
     Tok = TokenContext::instance().tokenize(std::move(input));
   }

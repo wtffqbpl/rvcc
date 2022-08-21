@@ -2,6 +2,10 @@
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)
 #endif
 
+#ifndef C_KEYWORD_INFO
+#define C_KEYWORD_INFO(Keyword, Expr, Desc)
+#endif
+
 C_KEYWORD_INFO(RETURN,          "return",         "return"    )
 
 C_KEYWORD_INFO(CHAR,            "char",           "char"      )

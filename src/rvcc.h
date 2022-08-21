@@ -1,7 +1,7 @@
 #ifndef SRC_RVCC_H
 #define SRC_RVCC_H
 
-#include "logs.h"
+#include "../include/logs.h"
 #include <cassert>
 
 /*

@@ -1,6 +1,7 @@
 #ifndef SRC_TOKENS_H
 #define SRC_TOKENS_H
 
+#include "c_syntax.h"
 #include <iostream>
 #include <map>
 #include <string_view>
@@ -43,44 +44,33 @@ protected:
 
 class KeywordToken : public Token {
 public:
-  enum class KeywordT : uint8_t {
-#define C_KEYWORD_INFO(Keyword, Expr, Desc) KT_##Keyword,
-#include "c_syntax_info.def"
-  };
-
-public:
-  explicit KeywordToken(const std::string_view &Keyword)
-      : Token(Token::TKind::TK_KEYWORD, nullptr, Keyword.size()),
-        KeywordType_(getKeywordTypeByName(Keyword)), Keyword_(Keyword) {}
+  explicit KeywordToken(const std::string_view &&Keyword)
+      : Token(TKind::TK_KEYWORD, nullptr, Keyword.size()), Keyword_(Keyword),
+        KeywordType_(getKeywordTypeByName(Keyword_)) {}
   [[nodiscard]] const std::string_view &getKeywordName() const {
     return Keyword_;
   }
 
 public:
-  static bool isa(const Token *V) {
-    return V->getKind() == Token::TKind::TK_KEYWORD;
-  }
+  static bool isa(const Token *V) { return V->getKind() == TKind::TK_KEYWORD; }
 
   static bool isKeyword(const std::string_view &InKeyword) {
     return StrKeywordMap_.contains(InKeyword);
   }
 
-  [[nodiscard]] KeywordToken::KeywordT getKeywordType() const {
-    return KeywordType_;
-  }
+  [[nodiscard]] c_syntax::CKType getKeywordType() const { return KeywordType_; }
 
 private:
-  static KeywordToken::KeywordT
+  static c_syntax::CKType
   getKeywordTypeByName(const std::string_view &Keyword) {
     return StrKeywordMap_[Keyword];
   }
 
 private:
   // @brief for token parse: string -> keyword type
-  static std::map<const std::string_view, KeywordToken::KeywordT>
-      StrKeywordMap_;
-  KeywordToken::KeywordT KeywordType_;
-  const std::string_view &Keyword_;
+  static std::map<const std::string_view, c_syntax::CKType> StrKeywordMap_;
+  const std::string_view Keyword_;
+  c_syntax::CKType KeywordType_;
 };
 
 class NumToken : public Token {
@@ -103,10 +93,24 @@ private:
 
 class PunctToken : public Token {
 public:
-  explicit PunctToken(std::string_view Name)
+  enum class PunctTy : unsigned {
+    PT_L_BRACE,
+    PT_R_BRACE,
+    PT_L_PAREN,
+    PT_R_PAREN,
+    PT_L_MID_PAREN,
+    PT_R_MID_PAREN,
+    PT_EQ,
+    PT_LT,
+    PT_LE,
+    PT_GT,
+  };
+
+public:
+  explicit PunctToken(const std::string_view &&Name)
       : Token(Token::TKind::TK_PUNCT, nullptr, Name.size()), Name_(Name) {}
 
-  [[nodiscard]] std::string_view getName() { return Name_; }
+  [[nodiscard]] const std::string_view &getName() { return Name_; }
 
   void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
 
@@ -116,12 +120,12 @@ public:
   }
 
 private:
-  std::string_view Name_;
+  const std::string_view Name_;
 };
 
 class IndentToken : public Token {
 public:
-  explicit IndentToken(std::string_view Name)
+  explicit IndentToken(const std::string_view &&Name)
       : Token(Token::TKind::TK_IDENT, nullptr, Name.size()), Name_(Name) {}
 
   [[nodiscard]] std::string_view getName() const { return Name_; }
@@ -134,7 +138,7 @@ public:
   }
 
 private:
-  std::string_view Name_;
+  const std::string_view Name_;
 };
 
 class EOFToken : public Token {

@@ -18,6 +18,9 @@
 //
 
 class Node;
+class Function;
+class KeywordNode;
+class BlockNode;
 
 class CodeGenContext {
 public:
