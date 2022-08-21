@@ -38,7 +38,8 @@ public:
 
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
   static Node *createKeywordNode(c_syntax::CKType Kind, Node *N1,
-                                 Node *N2 = nullptr, Node *N3 = nullptr);
+                                 Node *N2 = nullptr, Node *N3 = nullptr,
+                                 Node *N4 = nullptr);
   static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
   static Node *createNumNode(int Val);
   static Node *createVarNode(Obj *Var);
@@ -232,6 +233,31 @@ private:
   Node *ElseNode_;
 };
 
+class ForLoopNode : public KeywordNode {
+public:
+  // explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Cond, Node *Init,
+  // Node *Body, Node *Inc)
+  explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Latch, Node *Header,
+                       Node *Body, Node *Exiting)
+      : KeywordNode(KeywordType, Body), Latch_(Latch), Header_(Header),
+        Exiting_(Exiting) {}
+
+  [[nodiscard]] Node *getLatch() const { return Latch_; }
+  [[nodiscard]] Node *getHeader() const { return Header_; }
+  [[nodiscard]] Node *getExiting() const { return Exiting_; }
+
+public:
+  static unsigned getCount() {
+    static unsigned Count = 1;
+    return Count++;
+  }
+
+private:
+  Node *Latch_;
+  Node *Header_;
+  Node *Exiting_;
+};
+
 class Obj; // old variable info class.
 
 class BlockNode : public Node {
@@ -270,10 +296,6 @@ public:
   };
 
 public:
-  [[deprecated]] VariableNode(VarInfo *VI)
-      : Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
-        Obj_(VI) {}
-
   explicit VariableNode(Obj *ObjOld)
       : Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
         Old_Obj_(ObjOld) {}
@@ -294,16 +316,18 @@ private:
 // Local variable
 class Obj {
 public:
-  Obj(std::string_view Name_, Obj *Next_) : Name(Name_), Next(Next_) {}
-  [[nodiscard]] Obj *next() { return Next; }
-  [[nodiscard]] std::string_view name() const { return Name; }
-  [[nodiscard]] int offset() const { return Offset; }
-  void setOffset(int Offset_) { Offset = Offset_; }
+  explicit Obj(const std::string_view Name, Obj *Next)
+      : Name_(Name), Next_(Next), Offset_(0) {}
+
+  [[nodiscard]] Obj *next() { return Next_; }
+  [[nodiscard]] std::string_view name() const { return Name_; }
+  [[nodiscard]] int offset() const { return Offset_; }
+  void setOffset(int Offset) { Offset_ = Offset; }
 
 private:
-  Obj *Next;                // next obj.
-  std::string_view Name;    // variable name. TODO: Using string_view
-  int Offset;               // fp offset.
+  Obj *Next_;                   // next obj.
+  const std::string_view Name_; // variable name. TODO: Using string_view
+  int Offset_;                  // fp offset.
 };
 
 // Function object.
@@ -344,6 +368,7 @@ public:
   //    compoundStmt = stmt* "}"
   //    stmt = "return" expr ";"
   //           | "if" "(" expr ")" stmt ("else" stmt)?
+  //           | "for" "(" exprStmt expr? ";" expr? ")" stmt
   //           | "{" compoundStmt
   //           | exprStmt
   //    同时还包含return语句 exprStmt = expr? ";" // 表达式语句是由表达式 + ";"

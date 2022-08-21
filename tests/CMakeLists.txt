@@ -73,3 +73,7 @@ add_test(NAME 15_3 COMMAND rvcc "{ if (1) return 2; return 3; }")
 add_test(NAME 15_4 COMMAND rvcc "{ if (2-1) return 2; return 3; }")
 add_test(NAME 15_5 COMMAND rvcc "{ if (0) { 1; 2; return 3; } else { return 4; } }")
 add_test(NAME 15_6 COMMAND rvcc "{ if (1) { 1; 2; return 3; } else { return 4; } }")
+
+# [16] support for statement.
+add_test(NAME 16_1 COMMAND rvcc "{ i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }")
+add_test(NAME 16_2 COMMAND rvcc "{ for (;;) {return 3;} return 5; }")

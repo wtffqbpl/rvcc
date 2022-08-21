@@ -32,12 +32,16 @@ KeywordNode::KeywordNode(c_syntax::CKType KeywordType, Node *Body)
 }
 
 Node *Node::createKeywordNode(c_syntax::CKType Kind, Node *N1, Node *N2,
-                              Node *N3) {
+                              Node *N3, Node *N4) {
   Node *Nd = nullptr;
   switch (Kind) {
   case c_syntax::CKType::CK_IF:
   case c_syntax::CKType::CK_ELSE:
     Nd = new IfCondNode{Kind, N1 /* Cond */, N2 /* Body */, N3 /* ElseN */};
+    break;
+  case c_syntax::CKType::CK_FOR:
+    Nd = new ForLoopNode{Kind, N1 /* Latch */, N2 /* Header */, N3 /* Body */,
+                         N4 /* Exiting */};
     break;
   case c_syntax::CKType::CK_RETURN:
     Nd = new KeywordNode{Kind, N1};
@@ -167,6 +171,7 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 // parse statement.
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "for" "(" exprStmt expr ? ";" expr? ")" stmt
 //        | "{" compoundStmt
 //        | exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
@@ -189,7 +194,7 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
        c_syntax::CKType::CK_IF)) {
     KeywordToken *KT = dynamic_cast<KeywordToken *>(Tok);
     IfCondNode *Nd = dynamic_cast<IfCondNode *>(
-        Node::createKeywordNode(KT->getKeywordType(), nullptr, nullptr));
+        Node::createKeywordNode(KT->getKeywordType(), nullptr));
     Tok = skipPunct(Tok->next(), "(");
     Nd->setCond(createExpr(&Tok, Tok));
     Tok = skipPunct(Tok, ")");
@@ -205,6 +210,41 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
 
     *Rest = Tok;
     return Nd;
+  }
+
+  // "for" "(" exprStmt expr? ";" expr? ")" stmt
+  if (isa<KeywordToken>(Tok) &&
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+       c_syntax::CKType::CK_FOR)) {
+    // TODO
+    c_syntax::CKType KeywordType =
+        dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
+    // explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Cond, Node
+    // *Init, Node *Body, Node *Inc) explicit ForLoopNode(c_syntax::CKType
+    // KeywordType, Node *Latch, Node *Header, Node *Body, Node *Exiting)
+    // exprStmt
+    Tok = skipPunct(Tok->next(), "(");
+    Node *Header = createExprStmt(&Tok, Tok);
+
+    // expr?
+    Node *Latch = nullptr;
+    if (!isa<PunctToken>(Tok) ||
+        !::equal(dynamic_cast<PunctToken *>(Tok)->getName(), ";"))
+      Latch = createExpr(&Tok, Tok);
+    // ";"
+    Tok = skipPunct(Tok, ";");
+
+    // expr?
+    Node *Exiting = nullptr;
+    if (!isa<PunctToken>(Tok) ||
+        !::equal(dynamic_cast<PunctToken *>(Tok)->getName(), ")"))
+      Exiting = createExpr(&Tok, Tok);
+    Tok = skipPunct(Tok, ")");
+
+    // stmt
+    Node *Body = createStmt(Rest, Tok);
+
+    return Node::createKeywordNode(KeywordType, Latch, Header, Body, Exiting);
   }
 
   // "{" compundStmt

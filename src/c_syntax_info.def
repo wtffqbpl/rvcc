@@ -2,10 +2,6 @@
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)
 #endif
 
-#ifndef C_KEYWORD_INFO
-#define C_KEYWORD_INFO(Keyword, Expr, Desc)
-#endif
-
 C_KEYWORD_INFO(RETURN,          "return",         "return"    )
 
 C_KEYWORD_INFO(CHAR,            "char",           "char"      )
@@ -17,5 +13,7 @@ C_KEYWORD_INFO(DOUBLE,          "double",         "double"    )
 
 C_KEYWORD_INFO(IF,              "if",             "if"        )
 C_KEYWORD_INFO(ELSE,            "else",           "else"      )
+
+C_KEYWORD_INFO(FOR,             "for",            "for"       )
 
 #undef C_KEYWORD_INFO
