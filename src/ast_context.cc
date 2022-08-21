@@ -71,6 +71,10 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
   case Node::NKind::ND_BLOCK:
     CurNd = new BlockNode{Nd};
     break;
+  case Node::NKind::ND_ADDR:
+  case Node::NKind::ND_DEREF:
+    CurNd = new UnaryNode{Kind, Nd};
+    break;
   default:
     logging::error("Cannot handle this type of node: ",
                    static_cast<unsigned>(Kind));
@@ -451,17 +455,28 @@ Node *ASTContext::createMulExpr(Token **Rest, Token *Tok) {
 }
 
 // parse unary node.
-//    unary = ("+" | "-") unary | primary
+//    unary = ("+" | "-" | "*" | "&") unary | primary
 Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
+  // FIXME: using punctuation type for type checking.
   // "+" unary
   if (isa<PunctToken>(Tok) &&
-      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
+      ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
     return createUnaryExpr(Rest, Tok->next());
 
   // "-" unary
   if (isa<PunctToken>(Tok) &&
-      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "-"))
+      ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "-"))
     return Node::createUnaryNode(Node::NKind::ND_NEG,
+                                 createUnaryExpr(Rest, Tok->next()));
+
+  if (isa<PunctToken>(Tok) &&
+      ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "&"))
+    return Node::createUnaryNode(Node::NKind::ND_ADDR,
+                                 createUnaryExpr(Rest, Tok->next()));
+
+  if (isa<PunctToken>(Tok) &&
+      ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "*"))
+    return Node::createUnaryNode(Node::NKind::ND_DEREF,
                                  createUnaryExpr(Rest, Tok->next()));
 
   // primary

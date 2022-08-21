@@ -47,5 +47,8 @@ C_PUNCTUATION_INFO(M_MINUS,           "-",              "minus operator" )
 C_PUNCTUATION_INFO(M_DIV,             "/",              "division operator" )
 C_PUNCTUATION_INFO(M_MULTIPLY,        "*",              "multiply operator" )
 
+C_PUNCTUATION_INFO(DEREF,             "&",              "dereference operator" )
+C_PUNCTUATION_INFO(ADDR,              "*",              "acquire address operator" )
+
 #undef C_KEYWORD_INFO
 #undef C_PUNCTUATION_INFO

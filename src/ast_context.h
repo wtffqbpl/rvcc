@@ -121,6 +121,35 @@ private:
   Node *LHS_;
 };
 
+class UnaryNode : public Node {
+public:
+  explicit UnaryNode(Node::NKind Kind, Node *Rhs = nullptr)
+      : Node(Kind, Node::getTypeName(Kind)), Rhs_(Rhs) {}
+
+  [[nodiscard]] Node *getRhs() const { return Rhs_; }
+
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
+
+public:
+  static bool isa(const Node *N) {
+#define UNARY_NODE_INFO(Keyword, Expr, Desc)                                   \
+  case Node::NKind::ND_##Keyword:                                              \
+    return true;
+
+    switch (N->getKind()) {
+#include "node_type.def"
+    default:
+      break;
+    }
+    return false;
+  }
+
+private:
+  Node *Rhs_;
+};
+
 class NumNode : public Node {
 public:
   explicit NumNode(const std::string_view &Name, int Value)
@@ -379,7 +408,9 @@ public:
   //    组成 expr = assign assign = equality ("=" assign)? equality = relational
   //    ("==" relational | "!=" relational)* relational = add("<" add | "<=" add
   //    | ">" add | ">=" add)* add = mul ("+" mul | "-" mul)* mul = primary ("*"
-  //    primary | "/" primary) unary = ("+" | "-") unary | primary primary = "("
+  //    primary | "/" primary)
+  //    unary = ("+" | "-" "*" | "&") unary | primary
+  //    primary = "("
   //    expr ")" | num
   Function *create(Token *Tok);
 
