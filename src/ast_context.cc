@@ -172,6 +172,7 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "for" "(" exprStmt expr ? ";" expr? ")" stmt
+//        | "while" "(" expr ")" stmt
 //        | "{" compoundStmt
 //        | exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
@@ -179,10 +180,8 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   if (isa<KeywordToken>(Tok) &&
       (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
        c_syntax::CKType::CK_RETURN)) {
-    c_syntax::CKType KeywordType =
-        dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
-    Node *Nd =
-        Node::createKeywordNode(KeywordType, createExpr(&Tok, Tok->next()));
+    Node *Nd = Node::createKeywordNode(c_syntax::CKType::CK_RETURN,
+                                       createExpr(&Tok, Tok->next()));
     *Rest = skipPunct(Tok, ";");
     return Nd;
   }
@@ -211,17 +210,29 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     *Rest = Tok;
     return Nd;
   }
+  // "for" "(" exprStmt expr? ";" expr? ")" stmt
+  if (isa<KeywordToken>(Tok) &&
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+       c_syntax::CKType::CK_WHILE)) {
+    // exprStmt
+    assert(isa<PunctToken>(Tok->next()) && "must be a \"(\" punctuation");
+    Tok = skipPunct(Tok->next(), "(");
+    // latch
+    Node *Latch = createExpr(&Tok, Tok);
+    assert(isa<PunctToken>(Tok) && "must be a \")\" punctuation.");
+    Tok = skipPunct(Tok, ")");
+    // body
+    Node *Body = createStmt(Rest, Tok);
+
+    // generate for loop instead of while loop.
+    return Node::createKeywordNode(c_syntax::CKType::CK_FOR, Latch, nullptr,
+                                   Body, nullptr);
+  }
 
   // "for" "(" exprStmt expr? ";" expr? ")" stmt
   if (isa<KeywordToken>(Tok) &&
       (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
        c_syntax::CKType::CK_FOR)) {
-    // TODO
-    c_syntax::CKType KeywordType =
-        dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
-    // explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Cond, Node
-    // *Init, Node *Body, Node *Inc) explicit ForLoopNode(c_syntax::CKType
-    // KeywordType, Node *Latch, Node *Header, Node *Body, Node *Exiting)
     // exprStmt
     Tok = skipPunct(Tok->next(), "(");
     Node *Header = createExprStmt(&Tok, Tok);
@@ -244,7 +255,8 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     // stmt
     Node *Body = createStmt(Rest, Tok);
 
-    return Node::createKeywordNode(KeywordType, Latch, Header, Body, Exiting);
+    return Node::createKeywordNode(c_syntax::CKType::CK_FOR, Latch, Header,
+                                   Body, Exiting);
   }
 
   // "{" compundStmt

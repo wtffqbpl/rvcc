@@ -8,6 +8,10 @@ enum class CKType : unsigned {
 #include "c_syntax_info.def"
 };
 
+enum class PTType : unsigned {
+
+};
+
 } // end of namespace c_syntax
 
 #endif // SRC_C_SYNTAX_H

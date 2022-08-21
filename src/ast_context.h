@@ -369,6 +369,7 @@ public:
   //    stmt = "return" expr ";"
   //           | "if" "(" expr ")" stmt ("else" stmt)?
   //           | "for" "(" exprStmt expr? ";" expr? ")" stmt
+  //           | "while" "(" expr ")" stmt
   //           | "{" compoundStmt
   //           | exprStmt
   //    同时还包含return语句 exprStmt = expr? ";" // 表达式语句是由表达式 + ";"

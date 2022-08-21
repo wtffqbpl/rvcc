@@ -80,8 +80,9 @@ void CodeGenContext::genKeywordCode(KeywordNode *KNode) {
   }
   case c_syntax::CKType::CK_FOR: {
     ForLoopNode *ForNode = dynamic_cast<ForLoopNode *>(KNode);
-    // generate for header.
-    genStmt(ForNode->getHeader());
+    // generate for header. Note: while loop hasn't header body, so skip it.
+    if (ForNode->getHeader())
+      genStmt(ForNode->getHeader());
     // generate for loop tag.
     unsigned C = ForLoopNode::getCount();
     std::cout << ".L.for.begin." << C << ':' << std::endl;
