@@ -20,7 +20,7 @@ private:
     auto Stop = std::chrono::high_resolution_clock::now();
     std::chrono::nanoseconds Ms =
         std::chrono::duration_cast<std::chrono::nanoseconds>(Stop - Start_);
-    std::cout << Title_ << " " << Ms.count() << "ns\n";
+    std::cerr << Title_ << " " << Ms.count() << "ns\n";
   }
 
 private:
