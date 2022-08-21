@@ -54,6 +54,10 @@ public:
       logging::unreachable("unknown node type:", static_cast<uint8_t>(Kind));
       break;
     }
+
+    // depress warning.
+    // control reaches end of non-void function[-Wreturn-type]
+    return std::string{""};
   }
 
   friend class ASTContext;

@@ -14,17 +14,17 @@ struct CompilerOptions {
 
 static CompilerOptions CompilerOpts;
 
-std::string &&getSourceCode() {
+std::string getSourceCode() {
   if (CompilerOpts.ReadFromFile) {
     logging::info("Reading source code from file: ", CompilerOpts.filename);
     std::stringstream Oss;
     std::ifstream SrcFileHdl(CompilerOpts.filename);
     Oss << SrcFileHdl.rdbuf();
-    return std::move(Oss.str());
+    return Oss.str();
   }
 
   logging::info("Reading source code from commandline");
-  return std::move(std::string(CompilerOpts.filename));
+  return std::string{CompilerOpts.filename};
 }
 
 static inline void inputArgsCheck(int argc, char **argv) {
