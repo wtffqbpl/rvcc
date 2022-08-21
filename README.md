@@ -14,3 +14,10 @@ This is a RISC-V compiler according to [chibicc](https://github.com/rui314/chibi
 * [sunshaoce/rvcc](https://github.com/sunshaoce/rvcc)
 * [RISC-V System tutorials](https://www.bilibili.com/video/BV1Q5411w7z5)
 * [risc-v docker](https://github.com/DavidBurela/riscv-emulator-docker-image)
+
+
+## Contributors
+
+<a href = "https://github.com/Tanu-N-Prabhu/Python/graphs/contributors">
+  <img src = "https://contrib.rocks/image?repo=wtffqbpl/rvcc"/>
+</a>
