@@ -12,7 +12,7 @@
 
 class Timer {
 public:
-	Timer(const std::string_view Title) : Title_(Title) {
+	Timer(const std::string_view &Title) : Title_(Title) {
 		Start_ = std::chrono::high_resolution_clock::now();
 	}
 
@@ -22,12 +22,12 @@ private:
 	void stop() {
 		auto Stop = std::chrono::high_resolution_clock::now();
 		std::chrono::milliseconds Ms =
-						std::chrono::duration_cast<std::chrono::milliseconds>(Stop - Start_);
-		std::cout << Title_ << " " << Ms.count() * 0.001 << "s\n";
+						std::chrono::duration_cast<std::chrono::nanoseconds>(Stop - Start_);
+		std::cout << Title_ << " " << Ms.count() << "ns\n";
 	}
 
 private:
-	std::string_view Title_;
+	std::string_view &Title_;
 	std::chrono::high_resolution_clock::time_point Start_;
 };
 

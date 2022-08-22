@@ -25,12 +25,13 @@ public:
 
  	void dump(unsigned Depth = 0);
 
-	virtual void print(std::ostream &os) {}
+	virtual void print(std::ostream &os) const {}
 
 public:
   Node() = delete;	// 不能使用这个ctor
-	explicit Node(Node::NKind Kind, std::string_view Name, Node *Next = nullptr)
-					: Kind_(Kind), Name_(Name), Next_(Next) {}
+	explicit Node(Node::NKind Kind, std::string_view Name,
+				  Node *Next = nullptr)
+		: Kind_(Kind), Name_(Name), Next_(Next) {}
 
 	[[nodiscard]] std::string_view getName() { return Name_; }
 	[[nodiscard]] std::string_view getName() const { return Name_; }
@@ -38,62 +39,58 @@ public:
 	[[nodiscard]] Node *getNext() const { return Next_; }
 	void setNext(Node *Next) { Next_ = Next; }
 
-	static Node *createUnaryNode(Node::NKind Kind, Node *Nd,
-								 std::string_view = "");
+  static Node *createUnaryNode(Node::NKind Kind, Node *Nd,
+							   std::string_view = "");
 	static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
 	static Node *createNumNode(int Val);
 	static Node *createVarNode(VarObj *Var);
-	static std::string &getTypeName(Node::NKind Kind) {
-		return NodeTypeStrMap_[Kind];
-	}
+  static std::string getTypeName(Node::NKind Kind) {
+#define NODE_INFO(Type, Expr, Desc)                                            \
+  case Node::NKind::ND_##Type:                                                 \
+    return Expr;
 
+    switch (Kind) {
+#include "node_type.def"
+    default:
+      logging::unreachable("unknown node type:", static_cast<uint8_t>(Kind));
+      break;
+    }
+	}
 	friend class ASTContext;
 
 protected:
 	Node *Next_ = nullptr;
 
 private:
-	static std::unordered_map<Node::NKind, std::string> NodeTypeStrMap_;
-	Node::NKind Kind_; // node type.
+	Node::NKind Kind_; 			// node type.
 	std::string_view Name_;	// variable name.
 	int val = 0;
 };
-
-// 类型判断
-template <typename ET> bool isa(Node *V) {
-	try {
-		auto *Nd = dynamic_cast<ET *>(V);
-		if (Nd && ET::isa(Nd))
-			return true;
-	} catch (...) {
-		// no need to do anything.
-	}
-	return false;
-}
 
 class BinaryNode : public Node {
 public:
 	explicit BinaryNode(Node::NKind Kind, std::string_view Name, Node *LHS,
 											Node *RHS)
-					: Node(Kind, Name), LHS_(LHS), RHS_(RHS) {}
+			: Node(Kind, Name), LHS_(LHS), RHS_(RHS) {}
 
 	[[nodiscard]] Node *getLHS() { return LHS_; }
 	[[nodiscard]] Node *getRHS() { return RHS_; }
 
-	void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+	void print(std::ostream &os) override {
+		os << Node::getTypeName(getKind()); 
+	}
 
 public:
-	static bool isa(const BinaryNode *V) {
+	static bool isa(const Node *N) {
 #define BINARY_NODE_INFO(Type, Expr, Desc)                                     \
   case Node::NKind::ND_##Type:                                                 \
     return true;
 
-		switch (V->getKind()) {
+		switch (N->getKind()) {
 #include "node_type.def"
 			default:
 				break;
 		}
-
 		return false;
 	}
 
@@ -105,17 +102,19 @@ private:
 // 取反
 class NegNode : public Node {
 public:
-	explicit NegNode(std::string_view Name, Node *LHS = nullptr)
-					: Node(Node::NKind::ND_NE, Name), LHS_(LHS) {}
+	explicit NegNode( const std::string_view Name, Node *LHS = nullptr)
+			: Node(Node::NKind::ND_NE, Name), LHS_(LHS) {}
 
 	[[nodiscard]] Node *getLHS() const { return LHS_; }
 	[[nodiscard]] Node *getLHS() { return LHS_; }
 
-	void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+	void print(std::ostream &os) override {
+		os << Node::getTypeName(getKind());
+	}
 
 public:
-	static bool isa(const NegNode *V) {
-		return V->getKind() == Node::NKind::ND_NEG;
+	static bool isa(const Node *N) {
+		return N->getKind() == Node::NKind::ND_NEG;
 	}
 
 private:
@@ -125,16 +124,18 @@ private:
 // 数字
 class NumNode : public Node {
 public:
-	explicit NumNode(std::string_view Name, int Value)
-					: Node(Node::NKind::ND_NUM, Name), Value_(Value) {}
+	explicit NumNode(const std::string_view Name, int Value)
+			: Node(Node::NKind::ND_NUM, Name), Value_(Value) {}
 
 	[[nodiscard]] int getValue() const { return Value_; }
 
-	void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+	void print(std::ostream &os) override {
+		os << Node::getTypeName(getKind());
+	}
 
 public:
-	static bool isa(const NumNode *V) {
-		return V->getKind() == Node::NKind::ND_NUM;
+	static bool isa(const Node *N) {
+		return N->getKind() == Node::NKind::ND_NUM;
 	}
 
 private:
@@ -144,15 +145,17 @@ private:
 // 表达式
 class ExprStmtNode : public Node {
 public:
-	explicit ExprStmtNode(std::string_view Name, Node *Child)
-					: Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
+	explicit ExprStmtNode(const std::string_view Name, Node *Child)
+			: Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
 
 	[[nodiscard]] Node *getChild() const { return Child_; }
-	void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+	void print(std::ostream &os) override {
+		os << Node::getTypeName(getKind());
+	}
 
 public:
-	static bool isa(const ExprStmtNode *V) {
-		return V->getKind() == Node::NKind::ND_EXPR_STMT;
+	static bool isa(const Node *N) {
+		return N->getKind() == Node::NKind::ND_EXPR_STMT;
 	}
 
 private:
@@ -167,7 +170,7 @@ public:
   };
 
 public:
-  explicit KeywordNode(std::string_view KeywordName, Node *L)
+  explicit KeywordNode(const std::string_view KeywordName, Node *L)
       : Node(Node::NKind::ND_KEYROWD,
              Node::getTypeName(Node::NKind::ND_KEYROWD), nullptr),
         LHS_(L), KeywordName_(KeywordName) {}
@@ -175,20 +178,22 @@ public:
   [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
   [[nodiscard]] Node *getLHS() const { return LHS_; }
   [[nodiscard]] KeywordNT getKeywordType() const {
-    return StrKeywordTMap_[KeywordName_];
+    return StrKeyTMap_[KeywordName_];
   }
-  void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+  void print(std::ostream &os) override {
+		os << Node::getTypeName(getKind());
+	}
 
 public:
-  static bool isa(const KeywordNode *V) {
-    return V->getKind() == Node::NKind::ND_KEYROWD;
+  static bool isa(const Node *V) {
+    return N->getKind() == Node::NKind::ND_KEYROWD;
   }
 
 private:
   static std::unordered_map<std::string_view, KeywordNode::KeywordNT>
-      StrKeywordTMap_;
+      StrKeyTMap_;
   Node *LHS_;
-  std::string_view KeywordName_;
+  const std::string_view &KeywordName_;
 };
 
 class VarObj; // old variable info class.
@@ -208,7 +213,7 @@ public:
 	};
 
 public:
-	[[maybe_unused]] VariableNode(VarInfo *VI)
+	[[deprecated]] VariableNode(VarInfo *VI)
 					: Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
 						Obj_(VI) {}
 
@@ -217,11 +222,13 @@ public:
 						Old_Obj_(ObjOld) {}
 
 	[[nodiscard]] VarObj &getObj() const { return *Old_Obj_; }
-	void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+	void print(std::ostream &os) override {
+		os << Node::getTypeName(getKind());
+	}
 
 public:
-	static bool isa(const VariableNode *V) {
-		return V->getKind() == Node::NKind::ND_VAR;
+	static bool isa(const Node *V) {
+		return N->getKind() == Node::NKind::ND_VAR;
 	}
 
 private:
@@ -229,6 +236,6 @@ private:
 	VarObj *Old_Obj_ = nullptr;
 };
 
-
+template <typename ET> bool isa(const Node *N) { return ET::isa(N); }
 
 #endif
