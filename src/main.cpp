@@ -12,6 +12,27 @@
 #include <stack>
 #include <string>
 
+class CompileOptions {
+public:
+  CompileOptions() = default;
+  static CompileOptions &instance();
+};
+
+CompileOptions &CompileOptions::instance() {
+  static CompileOptions compileOpts{};
+  return compileOpts;
+}
+
+class Frontend {
+  Frontend() = default;
+  static Frontend &instance();
+};
+
+Frontend &Frontend::instance() {
+  static Frontend frontend{};
+  return frontend;
+}
+
 int main(int argc, char **argv) {
   inputArgsCheck(argc, argv);
 

@@ -18,6 +18,9 @@ public:
   Token() = default;
 
   Token(const Token &) = delete;
+  Token(Token &&) = delete;
+  Token &operator=(const Token &) = delete;
+  Token &operator=(Token &&) = delete;
 
   Token(TKind Kind, Token *Next, size_t Len)
       : Kind_(Kind), Next_(Next), Len_(Len) {}
@@ -39,17 +42,6 @@ protected:
   size_t Len_;            // length
 };
 
-template <typename ET> bool isa(Token *V) {
-  try {
-    auto *Tok = dynamic_cast<ET *>(V);
-    if (Tok && ET::isa(Tok))
-      return true;
-  } catch (...) {
-    // No need to do anything.
-  }
-  return false;
-}
-
 // KeyWord token class.
 class KeyWordToken : public Token {
 public:
@@ -66,7 +58,7 @@ public:
   [[nodiscard]] std::string_view getKeyWordName() const {return KeyWord_;}
 
 public:
-  static bool isa(const KeyWordToken *V) {
+  static bool isa(const Token *V) {
     return V->getKind() == Token::TKind::TK_KEYWORD;
   }
 
@@ -95,12 +87,12 @@ public:
   void print(std::ostream &os) override { os << ", {VAL, " << Val_ << "}"; }
 
 public:
-  static bool isa(const NumToken *V) {
+  static bool isa(const Token *V) {
     return V->getKind() == Token::TKind::TK_NUM;
   }
 
 private:
-  int Val_ = 0;
+  int Val_;
 };
 
 // 运算符Token
@@ -114,7 +106,7 @@ public:
   void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
 
 public:
-  static bool isa(const PunctToken *V) {
+  static bool isa(const Token *V) {
     return V->getKind() == Token::TKind::TK_PUNCT;
   }
 
@@ -133,7 +125,7 @@ public:
   void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
 
 public:
-  static bool isa(const IndentToken *V) {
+  static bool isa(const Token *V) {
     return V->getKind() == Token::TKind::TK_IDENT;
   }
 
@@ -147,7 +139,7 @@ public:
   explicit EOFToken() : Token(Token::TKind::TK_EOF, nullptr, 0) {}
 
 public:
-  static bool isa(const EOFToken *V) {
+  static bool isa(const Token *V) {
     return V->getKind() == Token::TKind::TK_EOF;
   }
 };
@@ -163,11 +155,13 @@ private:
                 std::string::iterator end);
 
 private:
-  std::string source_code_;
+  std::string SourceCode_;
 };
 
-
-
-
+//############################### Some Utils. #################################
+/*
+ * @brief 调用每个类型中的isa 静态函数，来判断传入的实例是否是期待的类型.
+ */
+template <typename ET> bool isa(Token *T) { return ET::isa(T); }
 
 #endif

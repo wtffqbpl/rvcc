@@ -63,7 +63,7 @@ void Node::dump(unsigned Depth) {
   // info indent.
   for (unsigned i = 0; i < Depth; ++i)
     std::cout << "  ";
-  std::cout << "{TYPE, " << getNodeTypeName(Kind_) << "}";
+  std::cout << "{TYPE, " << Node::getTypeName(Kind_) << "}";
   ++Depth;
   std::cout << std::endl;
 }

@@ -8,6 +8,8 @@
 #include <string>
 #include <unordered_map>
 
+#define DEBUG_TYPE "tokens"
+
 std::unordered_map<KeyWordToken::KeyWordT, std::string>
     KeyWordToken::KeyWordStrMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
@@ -85,32 +87,32 @@ TokenContext &TokenContext::instance() {
 // Parse string with position, and generate token
 Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
                             std::string::iterator End) {
-  auto Len = std::distance(Start, End);
-  auto Offset = std::distance(source_code_.begin(), Start);
+  std::string_view::size_type Len = std::distance(Start, End);
+  auto Offset = std::distance(SourceCode_.begin(), Start);
   Token *Tok = nullptr;
   switch (Kind) {
   case Token::TKind::TK_NUM: {
-    auto Val = std::stoi(source_code_.substr(Offset, Len));
-    Tok = dynamic_cast<Token *>(new NumToken{Val, static_cast<size_t>(Len)});
+    auto Val = std::stoi(SourceCode_.substr(Offset, Len));
+    Tok = new NumToken{Val, static_cast<size_t>(Len)};
     break;
   }
   case Token::TKind::TK_PUNCT: {
-    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
-    Tok = dynamic_cast<Token *>(new PunctToken{Name});
+    std::string_view Name = std::string_view(SourceCode_.data() + Offset, Len);
+    Tok = new PunctToken{Name};
     break;
   }
   case Token::TKind::TK_IDENT: {
-    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
-    Tok = dynamic_cast<Token *>(new IndentToken{Name});
+    std::string_view Name = std::string_view(SourceCode_.data() + Offset, Len);
+    Tok = new IndentToken{Name};
     break;
   }
   case Token::TKind::TK_KEYWORD: {
-    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
-    Tok = dynamic_cast<Token *>(new KeyWordToken{Name});
+    std::string_view Name = std::string_view(SourceCode_.data() + Offset, Len);
+    Tok = new KeyWordToken{Name};
     break;
   }
   case Token::TKind::TK_EOF:
-    Tok = dynamic_cast<Token *>(new EOFToken{});
+    Tok = new EOFToken{};
     break;
   default:
     logging::error("Unknown token type: ", static_cast<unsigned>(Kind));
@@ -132,12 +134,12 @@ static std::string::iterator getNumber(std::string &input,
 // EOF parser.
 Token *TokenContext::tokenize(std::string &&input) {
   // The feature of std::move was used for parameter "&&input".
-  source_code_ = input;
+  SourceCode_ = input;
   Token Head{};
   Token *Cur = &Head;
 
-  auto It = source_code_.begin();
-  for (auto End = source_code_.end(); It != End;) {
+  auto It = SourceCode_.begin();
+  for (auto End = SourceCode_.end(); It != End;) {
     char achar = *It;
 
     // skip spaces.
@@ -148,7 +150,7 @@ Token *TokenContext::tokenize(std::string &&input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      auto NumEndPos = getNumber(source_code_, It);
+      auto NumEndPos = getNumber(SourceCode_, It);
       Cur->setNext(create(Token::TKind::TK_NUM, It, NumEndPos));
       Cur = Cur->next();
       It += Cur->getLength();
@@ -162,9 +164,9 @@ Token *TokenContext::tokenize(std::string &&input) {
         ++It;
       } while (isValidIndent_2(*It));
       // we need check the Indent is variable or keyword there.
-      std::string VarName = 
-          source_code_.substr(std::distance(source_code_.begin(), StartPt),
-                              std::distance(StartPt, It));
+      std::string VarName =
+          SourceCode_.substr(std::distance(SourceCode_.begin(), StartPt),
+                             std::distance(StartPt, It));
       if (KeyWordToken::isKeyWord(VarName)) {
         Cur->setNext(create(Token::TKind::TK_KEYWORD, StartPt, It));
       } else {
@@ -176,7 +178,7 @@ Token *TokenContext::tokenize(std::string &&input) {
 
     // parse operators.
     int PunctLen =
-        readPunct(source_code_, std::distance(source_code_.begin(), It));
+        readPunct(SourceCode_, std::distance(SourceCode_.begin(), It));
     if (PunctLen) {
       // move string iterator PunctLen length.
       Cur->setNext(create(Token::TKind::TK_PUNCT, It, It + PunctLen));

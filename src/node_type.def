@@ -19,9 +19,9 @@ BINARY_NODE_INFO(NE,               "!=",                       "not equal"      
 BINARY_NODE_INFO(LT,               "<",                        "less than"                            )
 BINARY_NODE_INFO(LE,               "<=",                       "less or equal than"                   )
 BINARY_NODE_INFO(ASSIGN,           "=",                        "assignment"                           )
-BINARY_NODE_INFO(KEYROWD,          " ",                        "keyword"                              )
 UNARY_NODE_INFO(NEG,               "-",                        "unary operator for negation operator" )
 UNARY_NODE_INFO(EXPR_STMT,         "exprision",                "experision node"                      )
+NODE_INFO(KEYROWD,          			 " ",                        "keyword"                              )
 NODE_INFO(VAR,                     "[a-zA-Z_][a-zA-Z_0-9]*",   "variable"                             )
 NODE_INFO(NUM,                     "[0-9]*",                   "number"                               )
 

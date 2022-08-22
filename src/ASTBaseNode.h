@@ -1,5 +1,6 @@
 #ifndef PRASE_H
 #define PRASE_H
+#include "logs.h"
 #include <cassert>
 #include <cstdarg>
 #include <iostream>
@@ -76,9 +77,9 @@ public:
 	[[nodiscard]] Node *getLHS() { return LHS_; }
 	[[nodiscard]] Node *getRHS() { return RHS_; }
 
-	void print(std::ostream &os) override {
-		os << Node::getTypeName(getKind()); 
-	}
+        void print(std::ostream &os) const override {
+          os << Node::getTypeName(getKind());
+        }
 
 public:
 	static bool isa(const Node *N) {
@@ -108,9 +109,9 @@ public:
 	[[nodiscard]] Node *getLHS() const { return LHS_; }
 	[[nodiscard]] Node *getLHS() { return LHS_; }
 
-	void print(std::ostream &os) override {
-		os << Node::getTypeName(getKind());
-	}
+        void print(std::ostream &os) const override {
+          os << Node::getTypeName(getKind());
+        }
 
 public:
 	static bool isa(const Node *N) {
@@ -129,9 +130,9 @@ public:
 
 	[[nodiscard]] int getValue() const { return Value_; }
 
-	void print(std::ostream &os) override {
-		os << Node::getTypeName(getKind());
-	}
+        void print(std::ostream &os) const override {
+          os << Node::getTypeName(getKind());
+        }
 
 public:
 	static bool isa(const Node *N) {
@@ -149,9 +150,9 @@ public:
 			: Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
 
 	[[nodiscard]] Node *getChild() const { return Child_; }
-	void print(std::ostream &os) override {
-		os << Node::getTypeName(getKind());
-	}
+        void print(std::ostream &os) const override {
+          os << Node::getTypeName(getKind());
+        }
 
 public:
 	static bool isa(const Node *N) {
@@ -180,12 +181,12 @@ public:
   [[nodiscard]] KeywordNT getKeywordType() const {
     return StrKeyTMap_[KeywordName_];
   }
-  void print(std::ostream &os) override {
-		os << Node::getTypeName(getKind());
-	}
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
 
 public:
-  static bool isa(const Node *V) {
+  static bool isa(const Node *N) {
     return N->getKind() == Node::NKind::ND_KEYROWD;
   }
 
@@ -222,14 +223,12 @@ public:
 						Old_Obj_(ObjOld) {}
 
 	[[nodiscard]] VarObj &getObj() const { return *Old_Obj_; }
-	void print(std::ostream &os) override {
-		os << Node::getTypeName(getKind());
-	}
+        void print(std::ostream &os) const override {
+          os << Node::getTypeName(getKind());
+        }
 
 public:
-	static bool isa(const Node *V) {
-		return N->getKind() == Node::NKind::ND_VAR;
-	}
+  static bool isa(const Node *N) { return N->getKind() == Node::NKind::ND_VAR; }
 
 private:
 	VarInfo *Obj_ = nullptr;
