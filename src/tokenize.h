@@ -3,14 +3,16 @@
 
 #include <iostream>
 #include <string>
+#include <unordered_map>
 
 class Token {
 public:
   enum class TKind {
-    TK_IDENT, // ident
-    TK_PUNCT, // operator. + -
-    TK_NUM,   // number
-    TK_EOF,   // end of file
+    TK_IDENT,   // ident
+    TK_PUNCT,   // operator. + -
+    TK_KEYWORD, // KeyWord.
+    TK_NUM,     // number
+    TK_EOF,     // end of file
   };
 
   Token() = default;
@@ -47,6 +49,40 @@ template <typename ET> bool isa(Token *V) {
   }
   return false;
 }
+
+// KeyWord token class.
+class KeyWordToken : public Token {
+public:
+  enum class KeyWordT : uint8_t {
+#define C_KEYWORD_INFO(KeyWord, Expr, Desc) KT_##KeyWord,
+#include "c_syntax_info.def"
+  };
+
+public:
+  explicit KeyWordToken(std::string_view KeyWord)
+      : Token(Token::TKind::TK_KEYWORD, nullptr, KeyWord.size()),
+        KeyWord_(KeyWord) {}
+  
+  [[nodiscard]] std::string_view getKeyWordName() const {return KeyWord_;}
+
+public:
+  static bool isa(const KeyWordToken *V) {
+    return V->getKind() == Token::TKind::TK_KEYWORD;
+  }
+
+  static bool isKeyWord(std::string &InKeyWord) {
+    return StrKeyWordMap_.find(InKeyWord) != StrKeyWordMap_.end();
+  }
+
+private:
+  // @brief for token debug : keyword type  -> string
+  static std::unordered_map<KeyWordToken::KeyWordT, std::string> KeyWordStrMap_;
+  
+  // @brief for token debug : string -> keyword type.
+  static std::unordered_map<std::string, KeyWordToken::KeyWordT> StrKeyWordMap_;
+
+  std::string_view KeyWord_;
+};
 
 // 数字Token
 class NumToken : public Token {

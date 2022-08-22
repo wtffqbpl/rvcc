@@ -38,7 +38,8 @@ public:
 	[[nodiscard]] Node *getNext() const { return Next_; }
 	void setNext(Node *Next) { Next_ = Next; }
 
-	static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
+	static Node *createUnaryNode(Node::NKind Kind, Node *Nd,
+								 std::string_view = "");
 	static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
 	static Node *createNumNode(int Val);
 	static Node *createVarNode(VarObj *Var);
@@ -156,6 +157,38 @@ public:
 
 private:
 	Node *Child_;
+};
+
+class KeywordNode : public Node {
+public:
+  enum class KeywordNT : uint8_t {
+#define C_KEYWORD_INFO(Keyword, Expr, Desc) NK_##Keyword,
+#include "c_syntax_info.def"
+  };
+
+public:
+  explicit KeywordNode(std::string_view KeywordName, Node *L)
+      : Node(Node::NKind::ND_KEYROWD,
+             Node::getTypeName(Node::NKind::ND_KEYROWD), nullptr),
+        LHS_(L), KeywordName_(KeywordName) {}
+
+  [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
+  [[nodiscard]] Node *getLHS() const { return LHS_; }
+  [[nodiscard]] KeywordNT getKeywordType() const {
+    return StrKeywordTMap_[KeywordName_];
+  }
+  void print(std::ostream &os) override { os << Node::getTypeName(getKind()); }
+
+public:
+  static bool isa(const KeywordNode *V) {
+    return V->getKind() == Node::NKind::ND_KEYROWD;
+  }
+
+private:
+  static std::unordered_map<std::string_view, KeywordNode::KeywordNT>
+      StrKeywordTMap_;
+  Node *LHS_;
+  std::string_view KeywordName_;
 };
 
 class VarObj; // old variable info class.

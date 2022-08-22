@@ -62,16 +62,42 @@ void CodeGenContext::codegen(Function *Prog) {
   assignLVarOffsets(Prog);
   genPrologue(Prog);
   for (Node *N = Prog->body(); N; N = N->getNext()) {
-    assert(isa<ExprStmtNode>(N));
+    assert((isa<ExprStmtNode>(N) || isa<KeywordNode>(N)) &&
+            "This should be ExprStmt node.");
     genStmt(N);
     // if stack is dirty, then report error.
-    assert(Depth == 0);
+    assert(Depth == 0 && "must emit all nodes.");
   }
   genEpilogue();
 }
 
+void CodeGenContext::genKeywordCode(KeywordNode *Keyword) {
+  KeywordNode::KeywordNT Type = Keyword->getKeywordType();
+  if (Type == KeywordNode::KeywordNT::NK_RETURN) {
+    genExpr(Keyword->getLHS());
+    // 无条件跳转语句，跳转到 .L.return 段
+    // j offset 是 jal x0, offset 的别名指令
+    std::cout << "  j .L.return\n";
+    return;
+  }
+
+  logging::error("Other type of keyword cannot be implemented yet.",
+                 static_cast<uint8_t>(Type));
+}
+
 void CodeGenContext::genStmt(Node *Nd) {
-  return genExpr(dynamic_cast<ExprStmtNode *>(Nd)->getChild());
+  switch (Nd->getKind()) {
+  case Node::NKind::ND_KEYROWD:
+    genKeywordCode(dynamic_cast<KeywordNode *>(Nd));
+    return;
+  case Node::NKind::ND_EXPR_STMT:
+    genExpr(dynamic_cast<ExprStmtNode *>(Nd)->getChild());
+    return;
+  default:
+    break;
+  }
+
+  logging::error("invalid statement");
 }
 
 void CodeGenContext::genPrologue(Function *Prog) {
@@ -90,12 +116,15 @@ void CodeGenContext::genPrologue(Function *Prog) {
 }
 
 void CodeGenContext::genEpilogue() {
+  // 输出 return 段标签
+  std::cout << ".L.return:\n";
+
   // fp need write back to sp
-  std::cout << "  mv sp, fp" << std::endl;
+  std::cout << "  mv sp, fp\n";
 
   // 之前存在sp 的值写回到fp,
-  std::cout << "  ld fp, 0(sp)" << std::endl;
-  std::cout << "  addi sp, sp, 8" << std::endl;
+  std::cout << "  ld fp, 0(sp)\n";
+  std::cout << "  addi sp, sp, 8\n";
 
   // ret为jalr x0, x1, 0 别名指令，用于返回子程序
   std::cout << "  ret\n";
@@ -152,7 +181,7 @@ void CodeGenContext::genExpr(Node *Nd) {
     break;
   }
 
-  assert(isa<BinaryNode>(Nd));
+  assert(isa<BinaryNode>(Nd) && "This node must be a BinaryNode type.");
   auto *BNode = dynamic_cast<BinaryNode *>(Nd);
   // **先递归到最右的节点, 这种保证了表达式在计算的时候，从右往左来计算。**
   // recursive right node.

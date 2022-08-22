@@ -57,8 +57,18 @@ Function *ASTContext::create(Token *Tok) {
 }
 
 // parse statement.
-// stmt = exprStmt
+// stmt = return exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
+  // "return expr" ";"
+  if (isa<KeyWordToken>(Tok)) {
+    std::string_view KeywordName = 
+        dynamic_cast<KeyWordToken *>(Tok)->getKeyWordName();
+    Node *Nd = Node::createUnaryNode(
+        Node::NKind::ND_KEYROWD, createExpr(&Tok, Tok->next()), KeywordName);
+    
+    *Rest = skipPunct(Tok, ";");
+    return Nd;
+  }
   return createExprStmt(Rest, Tok);
 }
 

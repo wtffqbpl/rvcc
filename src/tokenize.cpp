@@ -8,6 +8,20 @@
 #include <string>
 #include <unordered_map>
 
+std::unordered_map<KeyWordToken::KeyWordT, std::string>
+    KeyWordToken::KeyWordStrMap_ = {
+#define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
+  {KeyWordToken::KeyWordT::KT_##Keyword, Expr},
+#include "c_syntax_info.def"
+};
+
+std::unordered_map<std::string, KeyWordToken::KeyWordT>
+    KeyWordToken::StrKeyWordMap_ = {
+#define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
+  {Expr, KeyWordToken::KeyWordT::KT_##Keyword},
+#include "c_syntax_info.def"
+};
+
 // @brief [a-z,A-Z]
 static bool isValidIndent_1(char achar) {
   return std::isalpha(achar) || achar == '_';
@@ -90,6 +104,11 @@ Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
     Tok = dynamic_cast<Token *>(new IndentToken{Name});
     break;
   }
+  case Token::TKind::TK_KEYWORD: {
+    std::string_view Name = std::string_view(source_code_.data() + Offset, Len);
+    Tok = dynamic_cast<Token *>(new KeyWordToken{Name});
+    break;
+  }
   case Token::TKind::TK_EOF:
     Tok = dynamic_cast<Token *>(new EOFToken{});
     break;
@@ -142,7 +161,15 @@ Token *TokenContext::tokenize(std::string &&input) {
       do {
         ++It;
       } while (isValidIndent_2(*It));
-      Cur->setNext(create(Token::TKind::TK_IDENT, StartPt, It));
+      // we need check the Indent is variable or keyword there.
+      std::string VarName = 
+          source_code_.substr(std::distance(source_code_.begin(), StartPt),
+                              std::distance(StartPt, It));
+      if (KeyWordToken::isKeyWord(VarName)) {
+        Cur->setNext(create(Token::TKind::TK_KEYWORD, StartPt, It));
+      } else {
+        Cur->setNext(create(Token::TKind::TK_IDENT, StartPt, It));
+      }
       Cur = Cur->next();
       continue;
     }
