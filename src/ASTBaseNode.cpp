@@ -2,10 +2,10 @@
 #include "BasicObjects.h"
 #include "logs.h"
 #include "tokenize.h"
-#include "unordered_map"
+#include <map>
 
-std::unordered_map<std::string_view, KeywordNode::KeywordNT>
-    KeywordNode::StrKeyTMap_ = {
+std::map<const std::string_view, KeywordNode::KeywordNT>
+    KeywordNode::KeyStrToTypeMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
   {Expr, KeywordNode::KeywordNT::NK_##Keyword},
 #include "c_syntax_info.def"
@@ -27,6 +27,9 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd, std::string_view Name) {
     break;
   case Node::NKind::ND_KEYROWD:
     CurNd = new KeywordNode{Name, Nd};
+    break;
+  case Node::NKind::ND_BLOCK:
+    CurNd = new BlockNode{Nd};
     break;
   default:
     logging::error("Cannot handle this type of node: ",

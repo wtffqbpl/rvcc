@@ -61,18 +61,14 @@ static void assignLVarOffsets(Function *Prog) {
 void CodeGenContext::codegen(Function *Prog) {
   assignLVarOffsets(Prog);
   genPrologue(Prog);
-  for (Node *N = Prog->body(); N; N = N->getNext()) {
-    assert((isa<ExprStmtNode>(N) || isa<KeywordNode>(N)) &&
-            "This should be ExprStmt node.");
-    genStmt(N);
-    // if stack is dirty, then report error.
-    assert(Depth == 0 && "must emit all nodes.");
-  }
+  genStmt(Prog->body());
+  // if stack is dirty, then report error.
+  assert(Depth == 0 && "must emit all nodes.");
   genEpilogue();
 }
 
 void CodeGenContext::genKeywordCode(KeywordNode *Keyword) {
-  KeywordNode::KeywordNT Type = Keyword->getKeywordType();
+  KeywordNode::KeywordNT Type = Keyword->getType();
   if (Type == KeywordNode::KeywordNT::NK_RETURN) {
     genExpr(Keyword->getLHS());
     // 无条件跳转语句，跳转到 .L.return 段
@@ -85,8 +81,16 @@ void CodeGenContext::genKeywordCode(KeywordNode *Keyword) {
                  static_cast<uint8_t>(Type));
 }
 
+void CodeGenContext::genBlockCode(BlockNode *BN) {
+  for (Node *N = BN->getBody(); N; N = N->getNext())
+    genStmt(N);
+}
+
 void CodeGenContext::genStmt(Node *Nd) {
   switch (Nd->getKind()) {
+  case Node::NKind::ND_BLOCK:
+    genBlockCode(dynamic_cast<BlockNode *>(Nd));
+    return;
   case Node::NKind::ND_KEYROWD:
     genKeywordCode(dynamic_cast<KeywordNode *>(Nd));
     return;

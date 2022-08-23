@@ -5,10 +5,10 @@
 #include <cstdarg>
 #include <iostream>
 #include <list>
+#include <map>
 #include <memory>
 #include <stack>
 #include <string>
-#include <unordered_map>
 
 class VarObj;
 class Function;
@@ -103,15 +103,15 @@ private:
 // 取反
 class NegNode : public Node {
 public:
-	explicit NegNode( const std::string_view Name, Node *LHS = nullptr)
-			: Node(Node::NKind::ND_NE, Name), LHS_(LHS) {}
+  explicit NegNode(const std::string_view Name, Node *LHS = nullptr)
+      : Node(Node::NKind::ND_NEG, Name), LHS_(LHS) {}
 
-	[[nodiscard]] Node *getLHS() const { return LHS_; }
-	[[nodiscard]] Node *getLHS() { return LHS_; }
+  [[nodiscard]] Node *getLHS() const { return LHS_; }
+  [[nodiscard]] Node *getLHS() { return LHS_; }
 
-        void print(std::ostream &os) const override {
-          os << Node::getTypeName(getKind());
-        }
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
 
 public:
 	static bool isa(const Node *N) {
@@ -174,13 +174,12 @@ public:
   explicit KeywordNode(const std::string_view KeywordName, Node *L)
       : Node(Node::NKind::ND_KEYROWD,
              Node::getTypeName(Node::NKind::ND_KEYROWD), nullptr),
-        LHS_(L), KeywordName_(KeywordName) {}
+        LHS_(L), KeywordType_(KeywordNode::getKindByName(KeywordName)),
+        KeywordName_(KeywordName) {}
 
   [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
   [[nodiscard]] Node *getLHS() const { return LHS_; }
-  [[nodiscard]] KeywordNT getKeywordType() const {
-    return StrKeyTMap_[KeywordName_];
-  }
+  [[nodiscard]] KeywordNT getType() const { return KeywordType_; }
   void print(std::ostream &os) const override {
     os << Node::getTypeName(getKind());
   }
@@ -191,13 +190,40 @@ public:
   }
 
 private:
-  static std::unordered_map<std::string_view, KeywordNode::KeywordNT>
-      StrKeyTMap_;
+  static KeywordNode::KeywordNT getKindByName(const std::string_view &NameStr) {
+    return KeyStrToTypeMap_[NameStr];
+  }
+
+private:
+  static std::map<const std::string_view, KeywordNode::KeywordNT>
+      KeyStrToTypeMap_;
   Node *LHS_;
+  KeywordNode::KeywordNT KeywordType_;
   const std::string_view &KeywordName_;
 };
 
 class VarObj; // old variable info class.
+
+class BlockNode : public Node {
+public:
+  explicit BlockNode(Node *Body)
+      : Node(Node::NKind::ND_BLOCK, Node::getTypeName(Node::NKind::ND_BLOCK)),
+        Body_(Body) {}
+
+  Node *getBody() { return Body_; }
+
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
+
+public:
+  static bool isa(const Node *N) {
+    return N->getKind() == Node::NKind::ND_BLOCK;
+  }
+
+private:
+  Node *Body_;
+};
 
 class VariableNode : public Node {
 public:

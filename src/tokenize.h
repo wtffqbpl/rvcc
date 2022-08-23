@@ -162,6 +162,6 @@ private:
 /*
  * @brief 调用每个类型中的isa 静态函数，来判断传入的实例是否是期待的类型.
  */
-template <typename ET> bool isa(Token *T) { return ET::isa(T); }
+template <typename ET> bool isa(const Token *T) { return ET::isa(T); }
 
 #endif

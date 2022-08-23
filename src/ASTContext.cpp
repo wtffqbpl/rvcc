@@ -22,16 +22,16 @@
 static VarObj *Locals = nullptr;
 
 static VarObj *findVar(IndentToken *Tok) {
-	for (VarObj *Var = Locals; Var; Var = Var->next())
-		if (Var->name() == Tok->getName())
-			return Var;
-	return nullptr;
+  for (VarObj *Var = Locals; Var; Var = Var->next())
+    if (Var->name() == Tok->getName())
+      return Var;
+  return nullptr;
 }
 
 static VarObj *newLVar(std::string_view Name) {
-	VarObj *Var = new VarObj{Name, Locals};
-	Locals = Var;
-	return Var;
+  VarObj *Var = new VarObj{Name, Locals};
+  Locals = Var;
+  return Var;
 }
 
 ASTContext &ASTContext::instance() {
@@ -40,20 +40,33 @@ ASTContext &ASTContext::instance() {
 }
 
 Function *ASTContext::create(Token *Tok) {
-	Function *Prog = new Function;
-	Node Head{Node::NKind::ND_EXPR_STMT,
-						Node::getTypeName(Node::NKind::ND_EXPR_STMT)};
-	Node *Cur = &Head;
+  assert((isa<PunctToken>(Tok) &&
+          equal(dynamic_cast<PunctToken *>(Tok)->getName(), "{")) &&
+         "program should be start {");
+  Tok = Tok->next();
+  Function *Prog = new Function;
+  Prog->setBody(compoundStmt(&Tok, Tok));
+  Prog->setLocals(Locals);
 
-	// stmt* 会有多个statements
-  while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
+  return Prog;
+}
+
+Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
+  Node Head{Node::NKind::ND_EXPR_STMT,
+            Node::getTypeName(Node::NKind::ND_EXPR_STMT)};
+  Node *Cur = &Head;
+
+  while (Tok != nullptr &&
+         (!isa<PunctToken>(Tok) ||
+          !equal(dynamic_cast<PunctToken *>(Tok)->getName(), "}"))) {
     Cur->setNext(createStmt(&Tok, Tok));
     Cur = Cur->getNext();
   }
-	Prog->setBody(Head.getNext());
-	Prog->setLocals(Locals);
 
-	return Prog;
+  // 解析完了body的内容
+  Node *Nd = Node::createUnaryNode(Node::NKind::ND_BLOCK, Head.getNext());
+  *Rest = Tok->next();
+  return Nd;
 }
 
 // parse statement.
@@ -69,6 +82,13 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     *Rest = skipPunct(Tok, ";");
     return Nd;
   }
+
+  // "{" compundStmt.
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "{"))
+    return compoundStmt(Rest, Tok->next());
+
+  // exprStmt.
   return createExprStmt(Rest, Tok);
 }
 
@@ -105,7 +125,7 @@ Node *ASTContext::createAssignExpr(Token **Rest, Token *Tok) {
 
   // 可能存在递归赋值？ a = b = 1
   if (isa<PunctToken>(Tok) &&
-			equal(dynamic_cast<PunctToken *>(Tok)->getName(), "=")) {
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "=")) {
     Nd = Node::createBinaryNode(Node::NKind::ND_ASSIGN, Nd,
                                 createAssignExpr(&Tok, Tok->next()));
   }
@@ -121,10 +141,10 @@ Node *ASTContext::createEqualityExpr(Token **Rest, Token *Tok) {
 
   // ("==" relational | "!=" relational)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-		if (!isa<PunctToken>(Tok))
-			break;
+    if (!isa<PunctToken>(Tok))
+      break;
 
-		auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
     // "==" relational
     if (equal(PunctTok.getName(), "==")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_EQ, Nd,
@@ -154,9 +174,9 @@ Node *ASTContext::createRelationalExpr(Token **Rest, Token *Tok) {
 
   // ("<" add | "<=" add | ">" add | ">=" add)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-		if (!isa<PunctToken>(Tok))
-			break;
-		auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
+    if (!isa<PunctToken>(Tok))
+      break;
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
 
     // "<" add
     if (equal(PunctTok.getName(), "<")) {
@@ -187,7 +207,6 @@ Node *ASTContext::createRelationalExpr(Token **Rest, Token *Tok) {
                                   createAddExpr(&Tok, Tok->next()), Nd);
       continue;
     }
-
     break;
   }
 
@@ -201,10 +220,10 @@ Node *ASTContext::createAddExpr(Token **Rest, Token *Tok) {
 
   // ("+" mul | "-" mul)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-		if (!isa<PunctToken>(Tok))
-			break;
+    if (!isa<PunctToken>(Tok))
+      break;
 
-		auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
 
     if (equal(PunctTok.getName(), "+")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd,
@@ -234,10 +253,10 @@ Node *ASTContext::createMulExpr(Token **Rest, Token *Tok) {
 
   // ("*" unary | "/" unary)*
   while (Tok && Tok->getKind() != Token::TKind::TK_EOF) {
-		if (!isa<PunctToken>(Tok))
-			break;
+    if (!isa<PunctToken>(Tok))
+      break;
 
-		auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
+    auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
     // "*" unary
     if (equal(PunctTok.getName(), "*")) {
       Nd = Node::createBinaryNode(Node::NKind::ND_MUL, Nd,
@@ -260,18 +279,20 @@ Node *ASTContext::createMulExpr(Token **Rest, Token *Tok) {
 }
 
 // parse unary node.
-//    unary = ("+" | "-") unary | primary
+// unary = ("+" | "-") unary | primary
 Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
-	if (isa<PunctToken>(Tok) &&
-			equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
+    return createUnaryExpr(Rest, Tok->next());
+
   // "+" unary
-	if (isa<PunctToken>(Tok) &&
-				equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
     return createUnaryExpr(Rest, Tok->next());
 
   // "-" unary
-	if (isa<PunctToken>(Tok) &&
-			equal(dynamic_cast<PunctToken *>(Tok)->getName(), "-"))
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "-"))
     return Node::createUnaryNode(Node::NKind::ND_NEG,
                                  createUnaryExpr(Rest, Tok->next()));
 
@@ -283,30 +304,30 @@ Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
 //    primary = "(" expr ")" | num
 Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   // "(" expr ")"
-	if (isa<PunctToken>(Tok) &&
-			equal(dynamic_cast<PunctToken *>(Tok)->getName(), "(")) {
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "(")) {
     Node *Nd = createExpr(&Tok, Tok->next());
-		*Rest = skipPunct(Tok, ")");
+    *Rest = skipPunct(Tok, ")");
     return Nd;
   }
 
   // num
-	if (isa<NumToken>(Tok)) {
-		Node *Nd = Node::createNumNode(dynamic_cast<NumToken *>(Tok)->getVal());
+  if (isa<NumToken>(Tok)) {
+    Node *Nd = Node::createNumNode(dynamic_cast<NumToken *>(Tok)->getVal());
     *Rest = Tok->next();
     return Nd;
   }
 
-	// single char variable name.
-	if (isa<IndentToken>(Tok)) {
-		auto *IdentTok = dynamic_cast<IndentToken *>(Tok);
-		std::string_view VarName = IdentTok->getName();
-		VarObj *Var = findVar(IdentTok);
-		if (!Var)
-			Var = newLVar(VarName);
-		*Rest = IdentTok->next();
-		return Node::createVarNode(Var);
-	}
+  // single char variable name.
+  if (isa<IndentToken>(Tok)) {
+    auto *IdentTok = dynamic_cast<IndentToken *>(Tok);
+    std::string_view VarName = IdentTok->getName();
+    VarObj *Var = findVar(IdentTok);
+    if (!Var)
+      Var = newLVar(VarName);
+    *Rest = IdentTok->next();
+    return Node::createVarNode(Var);
+  }
 
   logging::error("Expected an expression");
   return nullptr;

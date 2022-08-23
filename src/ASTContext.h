@@ -5,6 +5,7 @@
 #ifndef RVCC_ASTCONTEXT_H
 #define RVCC_ASTCONTEXT_H
 #include "ASTBaseNode.h"
+#include <map>
 
 class Token;
 class VarObj;
@@ -28,6 +29,8 @@ public:
   //    primary = "(" expr ")" | num
   Function *create(Token *Tok);
 
+private:
+  Node *compoundStmt(Token **Rest, Token *Tok);
   Node *createStmt(Token **Rest, Token *Tok);
   Node *createExprStmt(Token **Rest, Token *Tok);
   Node *createExpr(Token **Rest, Token *Tok);
