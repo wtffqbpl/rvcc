@@ -1,3 +1,5 @@
+![RVCC CI](https://github.com/wtffqbpl/rvcc/actions/workflows/cmake.yml/badge.svg)
+
 # rvcc
 RISC-V compiler
 
