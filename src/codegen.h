@@ -20,7 +20,7 @@
 class Node;
 class Function;
 class KeywordNode;
-class BlockNode;
+class UnaryNode;
 
 class CodeGenContext {
 public:
@@ -32,7 +32,7 @@ public:
 private:
   void genStmt(Node *Nd);
   void genKeywordCode(KeywordNode *Keyword);
-  void genBlockCode(BlockNode *BN);
+  void genBlockCode(UnaryNode *BN);
   void genExpr(Node *Nd);
   void genAddr(Node *Nd);
   void genPrologue(Function *Prog);

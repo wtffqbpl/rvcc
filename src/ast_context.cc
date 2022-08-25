@@ -62,14 +62,14 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
   switch (Kind) {
   case Node::NKind::ND_NEG:
     // There's only LSH node.
-    CurNd = new NegNode{Node::getTypeName(Kind), Nd};
+    CurNd = new UnaryNode{Kind, Nd};
     break;
   case Node::NKind::ND_EXPR_STMT:
     // There's only Next node.
-    CurNd = new ExprStmtNode{Node::getTypeName(Kind), Nd};
+    CurNd = new UnaryNode{Kind, Nd};
     break;
   case Node::NKind::ND_BLOCK:
-    CurNd = new BlockNode{Nd};
+    CurNd = new UnaryNode{Kind, Nd};
     break;
   case Node::NKind::ND_ADDR:
   case Node::NKind::ND_DEREF:
@@ -91,7 +91,7 @@ Node *Node::createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS) {
 
 // create a new number node.
 Node *Node::createNumNode(int Val) {
-  return new NumNode{Node::getTypeName(NKind::ND_NEG), Val};
+  return new NumNode{Node::getTypeName(NKind::ND_NUM), Val};
 }
 
 Node *Node::createVarNode(Obj *Var) { return new VariableNode{Var}; }
@@ -278,7 +278,7 @@ Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
   if (isa<PunctToken>(Tok) &&
       ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), ";")) {
     *Rest = Tok->next();
-    return new BlockNode{nullptr};
+    return new UnaryNode{Node::NKind::ND_BLOCK, nullptr};
   }
 
   // expr ";"

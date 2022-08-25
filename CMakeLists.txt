@@ -14,6 +14,7 @@ add_executable(rvcc
         src/ast_context.cc
         src/codegen.cc
         src/tokens.cc
+        src/type_system.cc
         )
 
 # testcase directory.
