@@ -42,4 +42,4 @@ static size_t readPunct(std::string &input, std::string::size_type start) {
   }
   return std::ispunct(input[start]) ? 1 : 0;
 }
-#endif // SRC_RVCC_H
+#endif // SRC_R

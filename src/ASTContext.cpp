@@ -72,6 +72,13 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 // parse statement.
 // stmt = return exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
+  // ";" -- aka empty statement.
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), ";")) {
+    *Rest = Tok->next();
+    return new BlockNode{nullptr};
+  }
+
   // "return expr" ";"
   if (isa<KeyWordToken>(Tok)) {
     std::string_view KeywordName = 

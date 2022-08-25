@@ -55,3 +55,9 @@ add_test(NAME single_char_var_name_4 COMMAND rvcc "{ a=3;b=4;a=1;return a+b; }")
 add_test(NAME return_1 COMMAND rvcc "{ return 1; 2; 3; }")
 add_test(NAME return_2 COMMAND rvcc "{ 1; return 2; 3; }")
 add_test(NAME return_3 COMMAND rvcc "{ 1; 2; return 3; }")
+
+# [12] support {...}
+add_test(NAME 12_1 COMMAND rvcc "{ 1; {2;} return 3; }")
+
+# [13] support empty statement.
+add_test(NAME 13_1 COMMAND rvcc "{ ; ; ; {2;} return 3; }")

@@ -115,7 +115,7 @@ void CodeGenContext::genPrologue(Function *Prog) {
   std::cout << "  mv fp, sp" << std::endl;
 
   // 偏移量为实际变量所用的 stack 大小
-  std::cout << "  add sp, sp " << static_cast<int>(-Prog->stackSize())
+  std::cout << "  add sp, sp, " << static_cast<int>(-Prog->stackSize())
             << std::endl;
 }
 
@@ -138,7 +138,7 @@ void CodeGenContext::genAddr(Node *Nd) {
   if (isa<VariableNode>(Nd)) {
     auto *Var = dynamic_cast<VariableNode *>(Nd);
     // 偏移量为相对于 fp 的
-    std::cout << "  addi a0, fp " << static_cast<int>(Var->getObj().offset())
+    std::cout << "  addi a0, fp, " << static_cast<int>(Var->getObj().offset())
               << std::endl;
     return;
   }
