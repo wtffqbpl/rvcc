@@ -1,5 +1,6 @@
 #ifndef PRASE_H
 #define PRASE_H
+#include "c_syntax.h"
 #include "logs.h"
 #include <cassert>
 #include <cstdarg>
@@ -34,18 +35,16 @@ public:
 				  Node *Next = nullptr)
 		: Kind_(Kind), Name_(Name), Next_(Next) {}
 
-	[[nodiscard]] std::string_view getName() { return Name_; }
-	[[nodiscard]] std::string_view getName() const { return Name_; }
 	[[nodiscard]] Node *getNext() { return Next_; }
-	[[nodiscard]] Node *getNext() const { return Next_; }
 	void setNext(Node *Next) { Next_ = Next; }
 
-  static Node *createUnaryNode(Node::NKind Kind, Node *Nd,
-							   std::string_view = "");
-	static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
-	static Node *createNumNode(int Val);
-	static Node *createVarNode(VarObj *Var);
-  static std::string getTypeName(Node::NKind Kind) {
+        static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
+        static Node *createKeywordNode(c_cyntax::CKType, Node *N1,
+                                       Node *N2 = nullptr, Node *N3 = nullptr);
+        static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
+        static Node *createNumNode(int Val);
+        static Node *createVarNode(VarObj *Var);
+        static std::string getTypeName(Node::NKind Kind) {
 #define NODE_INFO(Type, Expr, Desc)                                            \
   case Node::NKind::ND_##Type:                                                 \
     return Expr;
@@ -56,48 +55,48 @@ public:
       logging::unreachable("unknown node type:", static_cast<uint8_t>(Kind));
       break;
     }
-	}
-	friend class ASTContext;
+        }
+        friend class ASTContext;
 
-protected:
-	Node *Next_ = nullptr;
+      protected:
+        Node *Next_ = nullptr;
 
-private:
-	Node::NKind Kind_; 			// node type.
-	std::string_view Name_;	// variable name.
-	int val = 0;
+      private:
+        Node::NKind Kind_;      // node type.
+        std::string_view Name_; // variable name.
+        int val = 0;
 };
 
 class BinaryNode : public Node {
 public:
-	explicit BinaryNode(Node::NKind Kind, std::string_view Name, Node *LHS,
-											Node *RHS)
-			: Node(Kind, Name), LHS_(LHS), RHS_(RHS) {}
+  explicit BinaryNode(Node::NKind Kind, std::string_view Name, Node *LHS,
+                      Node *RHS)
+      : Node(Kind, Name), LHS_(LHS), RHS_(RHS) {}
 
-	[[nodiscard]] Node *getLHS() { return LHS_; }
-	[[nodiscard]] Node *getRHS() { return RHS_; }
+  [[nodiscard]] Node *getLHS() { return LHS_; }
+  [[nodiscard]] Node *getRHS() { return RHS_; }
 
-        void print(std::ostream &os) const override {
-          os << Node::getTypeName(getKind());
-        }
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
 
 public:
-	static bool isa(const Node *N) {
+  static bool isa(const Node *N) {
 #define BINARY_NODE_INFO(Type, Expr, Desc)                                     \
   case Node::NKind::ND_##Type:                                                 \
     return true;
 
-		switch (N->getKind()) {
+    switch (N->getKind()) {
 #include "node_type.def"
-			default:
-				break;
-		}
-		return false;
-	}
+    default:
+      break;
+    }
+    return false;
+  }
 
 private:
-	Node *LHS_;
-	Node *RHS_;
+  Node *LHS_;
+  Node *RHS_;
 };
 
 // 取反
@@ -114,74 +113,61 @@ public:
   }
 
 public:
-	static bool isa(const Node *N) {
-		return N->getKind() == Node::NKind::ND_NEG;
-	}
+  static bool isa(const Node *N) { return N->getKind() == Node::NKind::ND_NEG; }
 
 private:
-	Node *LHS_;
+  Node *LHS_;
 };
 
 // 数字
 class NumNode : public Node {
 public:
-	explicit NumNode(const std::string_view Name, int Value)
-			: Node(Node::NKind::ND_NUM, Name), Value_(Value) {}
+  explicit NumNode(const std::string_view Name, int Value)
+      : Node(Node::NKind::ND_NUM, Name), Value_(Value) {}
 
-	[[nodiscard]] int getValue() const { return Value_; }
+  [[nodiscard]] int getValue() const { return Value_; }
 
-        void print(std::ostream &os) const override {
-          os << Node::getTypeName(getKind());
-        }
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
 
 public:
-	static bool isa(const Node *N) {
-		return N->getKind() == Node::NKind::ND_NUM;
-	}
+  static bool isa(const Node *N) { return N->getKind() == Node::NKind::ND_NUM; }
 
 private:
-	int Value_;
+  int Value_;
 };
 
 // 表达式
 class ExprStmtNode : public Node {
 public:
-	explicit ExprStmtNode(const std::string_view Name, Node *Child)
-			: Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
+  explicit ExprStmtNode(const std::string_view &&Name, Node *Child)
+      : Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
 
-	[[nodiscard]] Node *getChild() const { return Child_; }
-        void print(std::ostream &os) const override {
-          os << Node::getTypeName(getKind());
-        }
+  [[nodiscard]] Node *getChild() const { return Child_; }
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
 
 public:
-	static bool isa(const Node *N) {
-		return N->getKind() == Node::NKind::ND_EXPR_STMT;
-	}
+  static bool isa(const Node *N) {
+    return N->getKind() == Node::NKind::ND_EXPR_STMT;
+  }
 
 private:
-	Node *Child_;
+  Node *Child_;
 };
 
 class KeywordNode : public Node {
 public:
-  enum class KeywordNT : uint8_t {
-#define C_KEYWORD_INFO(Keyword, Expr, Desc) NK_##Keyword,
-#include "c_syntax_info.def"
-  };
-
-public:
-  explicit KeywordNode(const std::string_view KeywordName, Node *L)
-      : Node(Node::NKind::ND_KEYROWD,
-             Node::getTypeName(Node::NKind::ND_KEYROWD), nullptr),
-        LHS_(L), KeywordType_(KeywordNode::getKindByName(KeywordName)),
-        KeywordName_(KeywordName) {}
+  explicit KeywordNode(c_cyntax::CKType KeywordType, Node *L);
 
   [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
-  [[nodiscard]] Node *getLHS() const { return LHS_; }
-  [[nodiscard]] KeywordNT getType() const { return KeywordType_; }
+  [[nodiscard]] Node *getBody() { return BodyNode_; }
+  [[nodiscard]] c_cyntax::CKType getKeywordType() const { return KeywordType_; }
+  void setBody(Node *Body) { BodyNode_ = Body; }
   void print(std::ostream &os) const override {
-    os << Node::getTypeName(getKind());
+    os << getKeywordName() << " " << Node::getTypeName(getKind());
   }
 
 public:
@@ -190,16 +176,60 @@ public:
   }
 
 private:
-  static KeywordNode::KeywordNT getKindByName(const std::string_view &NameStr) {
-    return KeyStrToTypeMap_[NameStr];
+  Node *BodyNode_;
+  c_cyntax::CKType KeywordType_;
+  std::string_view KeywordName_;
+};
+
+/*
+ * @brief
+ *        if (cond) {
+ *          // BodyNode
+ *        } else {
+ *          // ElseNode
+ *        }
+ *
+ *   This if-statement source code will generate following code:
+ *      cond code
+ *      beqz cond else  //  if condition is false, then goto else block.
+ *      body code
+ *      jump to end
+ *   .L.else
+ *      Else code
+ *   .L.end
+ */
+class IfCondNode : public KeywordNode {
+public:
+  explicit IfCondNode(c_cyntax::CKType KeywordType, Node *Cond, Node *Body,
+                      Node *ElseN)
+      : KeywordNode(KeywordType, Body), CondNode_(Cond), ElseNode_(ElseN) {}
+  [[nodiscard]] Node *getCond() const { return CondNode_; }
+  [[nodiscard]] Node *getElse() const { return ElseNode_; }
+
+  void setCond(Node *CondNode) { CondNode_ = CondNode; }
+  void setElseN(Node *ElseNode) { ElseNode_ = ElseNode; }
+
+public:
+  static bool isa(const KeywordNode *N) {
+    switch (N->getKeywordType()) {
+    case c_cyntax::CKType::CK_IF:
+    case c_cyntax::CKType::CK_ELSE:
+      return true;
+    default:
+      break;
+    }
+    return false;
+  }
+
+  /* there may be has many if else */
+  static unsigned getCount() {
+    static unsigned Count = 1;
+    return Count++;
   }
 
 private:
-  static std::map<const std::string_view, KeywordNode::KeywordNT>
-      KeyStrToTypeMap_;
-  Node *LHS_;
-  KeywordNode::KeywordNT KeywordType_;
-  const std::string_view &KeywordName_;
+  Node *CondNode_;
+  Node *ElseNode_;
 };
 
 class VarObj; // old variable info class.
@@ -227,38 +257,38 @@ private:
 
 class VariableNode : public Node {
 public:
-	/*
-	 * @brief 由于变量需要在 stack
-	 * 上面申请空间，而且变量的顺序也需要固定，方便后面去获取，
-	 *        因此也需要使用链表将变量关联在一起.
-	 *        TODO: 是否可以将变量之间的链表关系放在外面，通过链表数据结构来保证?
-	 */
-	struct VarInfo {
-		VarInfo *Next = nullptr;
-		std::string_view Name;
-		unsigned FrameIdx = 0;
-	};
+  /*
+   * @brief 由于变量需要在 stack
+   * 上面申请空间，而且变量的顺序也需要固定，方便后面去获取，
+   *        因此也需要使用链表将变量关联在一起.
+   *        TODO: 是否可以将变量之间的链表关系放在外面，通过链表数据结构来保证?
+   */
+  struct VarInfo {
+    VarInfo *Next = nullptr;
+    std::string_view Name;
+    unsigned FrameIdx = 0;
+  };
 
 public:
-	[[deprecated]] VariableNode(VarInfo *VI)
-					: Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
-						Obj_(VI) {}
+  [[deprecated]] VariableNode(VarInfo *VI)
+      : Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
+        Obj_(VI) {}
 
-	explicit VariableNode(VarObj *ObjOld)
-					: Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
-						Old_Obj_(ObjOld) {}
+  explicit VariableNode(VarObj *ObjOld)
+      : Node(Node::NKind::ND_VAR, Node::getTypeName(Node::NKind::ND_VAR)),
+        Old_Obj_(ObjOld) {}
 
-	[[nodiscard]] VarObj &getObj() const { return *Old_Obj_; }
-        void print(std::ostream &os) const override {
-          os << Node::getTypeName(getKind());
-        }
+  [[nodiscard]] VarObj &getObj() const { return *Old_Obj_; }
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
 
 public:
   static bool isa(const Node *N) { return N->getKind() == Node::NKind::ND_VAR; }
 
 private:
-	VarInfo *Obj_ = nullptr;
-	VarObj *Old_Obj_ = nullptr;
+  VarInfo *Obj_ = nullptr;
+  VarObj *Old_Obj_ = nullptr;
 };
 
 template <typename ET> bool isa(const Node *N) { return ET::isa(N); }

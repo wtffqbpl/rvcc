@@ -20,13 +20,13 @@ public:
 
   // BNF:
   //    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
-  //    expr = assign
-  //    equality = relational ("==" relational | "!=" relational)*
-  //    relational = add("<" add | "<=" add | ">" add | ">=" add)*
-  //    add = mul ("+" mul | "-" mul)*
-  //    mul = primary ("*" primary | "/" primary)
-  //    unary = ("+" | "-") unary | primary
-  //    primary = "(" expr ")" | num
+  //    program = "{" compoundStmt // 表示程序是由多个statements(语句)来构成的
+  //    compoundStmt = stmt* "}"
+  //    stmt = "return" expr ";" | exprStmt  // 语句是由表达式语句构成,
+  //    stmt = "return" expr ";"
+  //           | "if" "(" expr ")" stmt ("else" stmt)?
+  //           | "{" compoundStmt
+  //           | exprStmt
   Function *create(Token *Tok);
 
 private:

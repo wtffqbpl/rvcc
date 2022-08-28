@@ -29,10 +29,6 @@ static void error_internal(T FirstArg, Types... Lefts) {
   std::exit(1);
 }
 
-#define error(...)                                                             \
-  error_internal(__FILE__, ", line=", static_cast<size_t>(__LINE__), ": ",     \
-                 __VA_ARGS__)
-
 template <typename T, typename... Types>
 static void unreachable_internal(T Msg, Types... Lefts) {
   std::cout << "[UNREACHABLE]: ";
@@ -43,10 +39,6 @@ static void unreachable_internal(T Msg, Types... Lefts) {
   std::exit(2);
 }
 
-#define unreachable(...)                                                       \
-  unreachable_internal(__FILE__, "line=", static_cast<size_t>(__LINE__), ": ", \
-                       __VA_ARGS__)
-
 template <typename T, typename... Types>
 static void info_internal(T FirstArg, Types... Lefts) {
   std::cout << "[INFO]: ";
@@ -54,9 +46,18 @@ static void info_internal(T FirstArg, Types... Lefts) {
   std::cout << std::endl;
 }
 
+// ############################# Externam APIs ###############################//
+#define error(...)                                                             \
+  error_internal(__FILE__, ", line=", static_cast<size_t>(__LINE__), ": ",     \
+                 __VA_ARGS__)
+
+#define unreachable(...)                                                       \
+  unreachable_internal(__FILE__, "line=", static_cast<size_t>(__LINE__), ": ", \
+                       __VA_ARGS__)
+
 #define info(...)                                                              \
   info_internal(__FILE__, ", line = ", static_cast<size_t>(__LINE__), ": ",    \
-                __VA_ARGS)
+                __VA_ARGS__)
 
 } // end of namespace logging.
 

@@ -1,26 +1,20 @@
 #include "tokenize.h"
+#include "c_syntax.h"
 #include "rvcc.h"
 #include <cassert>
 #include <cstdarg>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <stack>
 #include <string>
-#include <unordered_map>
 
 #define DEBUG_TYPE "tokens"
 
-std::unordered_map<KeyWordToken::KeyWordT, std::string>
-    KeyWordToken::KeyWordStrMap_ = {
+std::map<const std::string_view, c_cyntax::CKType>
+    KeywordToken::StrKeywordMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
-  {KeyWordToken::KeyWordT::KT_##Keyword, Expr},
-#include "c_syntax_info.def"
-};
-
-std::unordered_map<std::string, KeyWordToken::KeyWordT>
-    KeyWordToken::StrKeyWordMap_ = {
-#define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
-  {Expr, KeyWordToken::KeyWordT::KT_##Keyword},
+  {Expr, c_cyntax::CKType::CK_##Keyword},
 #include "c_syntax_info.def"
 };
 
@@ -37,10 +31,11 @@ static bool isValidIndent_2(char achar) {
 static std::string getKindStr(Token::TKind Kind) {
 #define TokenTypeName(Kind)                                                    \
   { Token::TKind::Kind, #Kind }
-  static std::unordered_map<Token::TKind, std::string> KindToStrMap = {
+  static std::map<Token::TKind, std::string> KindToStrMap = {
       TokenTypeName(TK_IDENT),
       TokenTypeName(TK_PUNCT),
       TokenTypeName(TK_NUM),
+      TokenTypeName(TK_KEYWORD),
   };
   return KindToStrMap[Kind];
 }
@@ -55,7 +50,7 @@ void Token::dump(unsigned StatementIndent, unsigned Depth) {
 
   for (unsigned i = 0; i < Depth; ++i)
     std::cout << "  ";
-  std::cout << "{KIND, " << getKindStr(Kind_) << "}";
+  std::cout << "{" << getKindStr(Kind_);
   switch (Kind_) {
   case Token::TKind::TK_NUM:
     dynamic_cast<NumToken *>(this)->print(std::cout);
@@ -69,6 +64,9 @@ void Token::dump(unsigned StatementIndent, unsigned Depth) {
   }
   case Token::TKind::TK_IDENT:
     dynamic_cast<IndentToken *>(this)->print(std::cout);
+    break;
+  case Token::TKind::TK_KEYWORD:
+    dynamic_cast<KeywordToken *>(this)->print(std::cout);
     break;
   default:
     assert("No this type of token.");
@@ -98,17 +96,17 @@ Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
   }
   case Token::TKind::TK_PUNCT: {
     std::string_view Name = std::string_view(SourceCode_.data() + Offset, Len);
-    Tok = new PunctToken{Name};
+    Tok = new PunctToken{std::move(Name)};
     break;
   }
   case Token::TKind::TK_IDENT: {
     std::string_view Name = std::string_view(SourceCode_.data() + Offset, Len);
-    Tok = new IndentToken{Name};
+    Tok = new IndentToken{std::move(Name)};
     break;
   }
   case Token::TKind::TK_KEYWORD: {
     std::string_view Name = std::string_view(SourceCode_.data() + Offset, Len);
-    Tok = new KeyWordToken{Name};
+    Tok = new KeywordToken{std::move(Name)};
     break;
   }
   case Token::TKind::TK_EOF:
@@ -167,7 +165,7 @@ Token *TokenContext::tokenize(std::string &&input) {
       std::string VarName =
           SourceCode_.substr(std::distance(SourceCode_.begin(), StartPt),
                              std::distance(StartPt, It));
-      if (KeyWordToken::isKeyWord(VarName)) {
+      if (KeywordToken::isKeyWord(VarName)) {
         Cur->setNext(create(Token::TKind::TK_KEYWORD, StartPt, It));
       } else {
         Cur->setNext(create(Token::TKind::TK_IDENT, StartPt, It));

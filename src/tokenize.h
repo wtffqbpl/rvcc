@@ -1,9 +1,10 @@
 #ifndef TOKENIZE_H
 #define TOKENIZE_H
 
+#include "c_syntax.h"
 #include <iostream>
-#include <string>
-#include <unordered_map>
+#include <map>
+#include <string_view>
 
 class Token {
 public:
@@ -43,19 +44,19 @@ protected:
 };
 
 // KeyWord token class.
-class KeyWordToken : public Token {
+class KeywordToken : public Token {
 public:
-  enum class KeyWordT : uint8_t {
-#define C_KEYWORD_INFO(KeyWord, Expr, Desc) KT_##KeyWord,
-#include "c_syntax_info.def"
-  };
+  explicit KeywordToken(const std::string_view &&Keyword)
+      : Token(Token::TKind::TK_KEYWORD, nullptr, Keyword.size()),
+        KeywordType_(getKeywordTypeByName(Keyword)), Keyword_(Keyword) {}
 
-public:
-  explicit KeyWordToken(std::string_view KeyWord)
-      : Token(Token::TKind::TK_KEYWORD, nullptr, KeyWord.size()),
-        KeyWord_(KeyWord) {}
-  
-  [[nodiscard]] std::string_view getKeyWordName() const {return KeyWord_;}
+  [[nodiscard]] const std::string_view getKeywordName() const {
+    return Keyword_;
+  }
+
+  void print(std::ostream &os) override {
+    os << " Keyword: " << Keyword_ << " }";
+  }
 
 public:
   static bool isa(const Token *V) {
@@ -63,17 +64,22 @@ public:
   }
 
   static bool isKeyWord(std::string &InKeyWord) {
-    return StrKeyWordMap_.find(InKeyWord) != StrKeyWordMap_.end();
+    return StrKeywordMap_.find(InKeyWord) != StrKeywordMap_.end();
+  }
+
+  [[nodiscard]] c_cyntax::CKType getKeywordType() const { return KeywordType_; }
+
+private:
+  static c_cyntax::CKType
+  getKeywordTypeByName(const std::string_view &Keyword) {
+    return StrKeywordMap_[Keyword];
   }
 
 private:
-  // @brief for token debug : keyword type  -> string
-  static std::unordered_map<KeyWordToken::KeyWordT, std::string> KeyWordStrMap_;
-  
   // @brief for token debug : string -> keyword type.
-  static std::unordered_map<std::string, KeyWordToken::KeyWordT> StrKeyWordMap_;
-
-  std::string_view KeyWord_;
+  static std::map<const std::string_view, c_cyntax::CKType> StrKeywordMap_;
+  c_cyntax::CKType KeywordType_;
+  const std::string_view Keyword_;
 };
 
 // 数字Token
@@ -84,7 +90,7 @@ public:
 
   [[nodiscard]] int getVal() const { return Val_; }
 
-  void print(std::ostream &os) override { os << ", {VAL, " << Val_ << "}"; }
+  void print(std::ostream &os) override { os << " VAL: " << Val_ << " }"; }
 
 public:
   static bool isa(const Token *V) {
@@ -98,12 +104,26 @@ private:
 // 运算符Token
 class PunctToken : public Token {
 public:
-  explicit PunctToken(std::string_view Name)
+  enum class PunctTy : unsigned {
+    PT_L_BRACE,
+    PT_R_BRACE,
+    PT_L_PAREN,
+    PT_R_PAREN,
+    PT_L_MID_PAREN,
+    PT_R_MID_PAREN,
+    PT_EQ,
+    PT_LT,
+    PT_LE,
+    PT_GT,
+  };
+
+public:
+  explicit PunctToken(std::string_view &&Name)
       : Token(Token::TKind::TK_PUNCT, nullptr, Name.size()), Name_(Name) {}
 
-  [[nodiscard]] std::string_view getName() { return Name_; }
+  [[nodiscard]] const std::string_view &getName() { return Name_; }
 
-  void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
+  void print(std::ostream &os) override { os << " SIGN: " << Name_ << " }"; }
 
 public:
   static bool isa(const Token *V) {
@@ -111,18 +131,18 @@ public:
   }
 
 private:
-  std::string_view Name_;
+  const std::string_view Name_;
 };
 
 // 字符Token
 class IndentToken : public Token {
 public:
-  explicit IndentToken(std::string_view Name)
+  explicit IndentToken(const std::string_view &&Name)
       : Token(Token::TKind::TK_IDENT, nullptr, Name.size()), Name_(Name) {}
 
   [[nodiscard]] std::string_view getName() const { return Name_; }
 
-  void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
+  void print(std::ostream &os) override { os << " SIGN: " << Name_ << " }"; }
 
 public:
   static bool isa(const Token *V) {
@@ -130,7 +150,7 @@ public:
   }
 
 private:
-  std::string_view Name_;
+  const std::string_view Name_;
 };
 
 // 结束符Token

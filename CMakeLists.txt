@@ -20,7 +20,7 @@ add_executable(rvcc
   include/my_timer.h
   include/logs.h
   include/rvcc.h
-  )
+  include/c_syntax.h)
 
 
 # testcase directory.

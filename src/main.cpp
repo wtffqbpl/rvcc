@@ -7,57 +7,36 @@
 #include "tokenize.h"
 #include <cassert>
 #include <cstdarg>
+#include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <stack>
 #include <string>
-
-class CompileOptions {
-public:
-  CompileOptions() = default;
-  static CompileOptions &instance();
-};
-
-CompileOptions &CompileOptions::instance() {
-  static CompileOptions compileOpts{};
-  return compileOpts;
-}
-
-class Frontend {
-  Frontend() = default;
-  static Frontend &instance();
-};
-
-Frontend &Frontend::instance() {
-  static Frontend frontend{};
-  return frontend;
-}
 
 int main(int argc, char **argv) {
   inputArgsCheck(argc, argv);
 
-  std::string input(argv[1]);
-
   // generate tokens.
-  Token *Tok = nullptr;
+  Token *Tok;
   {
-    std::string input(argv[1]);
-    Timer("Tokenize");
+    // std::string input = getSourceCode();
+    std::string input{argv[1]};
+    Timer TokenizerTmr("Tokenize");
     Tok = TokenContext::instance().tokenize(std::move(input));
     Tok->dump();
   }
 
   // construct ast tree.
-  Function *Prog = nullptr;
+  Function *Prog;
   {
-    Timer("AST Construction");
+    Timer ASTTmr("AST Construction");
     Prog = ASTContext::instance().create(Tok);
-    Tok->dump();
   }
 
   // code generation.
   {
-    Timer("Code generation");
+    Timer CodeGenTmr("Code generation");
     CodeGenContext::instance().codegen(Prog);
   }
 

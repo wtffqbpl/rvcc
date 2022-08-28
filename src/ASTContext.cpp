@@ -6,21 +6,19 @@
 #include "ASTBaseNode.h"
 #include "BasicObjects.h"
 #include "CGAsm.h"
+#include "c_syntax.h"
 #include "rvcc.h"
 #include "tokenize.h"
-#include <iostream>
-#include <unordered_map>
 #include <cassert>
 #include <cstdarg>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <stack>
 #include <string>
 
-
 // 在解析时，全部的变量实例都被累加到这个列表中。
 static VarObj *Locals = nullptr;
-
 static VarObj *findVar(IndentToken *Tok) {
   for (VarObj *Var = Locals; Var; Var = Var->next())
     if (Var->name() == Tok->getName())
@@ -34,6 +32,14 @@ static VarObj *newLVar(std::string_view Name) {
   return Var;
 }
 
+// skip specified string
+static Token *skipPunct(Token *Tok, std::string_view Str) {
+  if (!isa<PunctToken>(Tok) ||
+      dynamic_cast<PunctToken *>(Tok)->getName() != Str)
+    logging::error("expect %s", Str.data());
+  return Tok->next();
+}
+
 ASTContext &ASTContext::instance() {
   static ASTContext astContext;
   return astContext;
@@ -43,8 +49,10 @@ Function *ASTContext::create(Token *Tok) {
   assert((isa<PunctToken>(Tok) &&
           equal(dynamic_cast<PunctToken *>(Tok)->getName(), "{")) &&
          "program should be start {");
+  // Skip "{"
   Tok = Tok->next();
-  Function *Prog = new Function;
+
+  auto *Prog = new Function;
   Prog->setBody(compoundStmt(&Tok, Tok));
   Prog->setLocals(Locals);
 
@@ -70,23 +78,48 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 }
 
 // parse statement.
-// stmt = return exprStmt
+// stmt = "return" expr ";"  |
+//        "if" "(" expr ")" stmt "else" stmt |
+//        "{" compoundStmt |
+//        exprStmt   
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
-  // ";" -- aka empty statement.
-  if (isa<PunctToken>(Tok) &&
-      equal(dynamic_cast<PunctToken *>(Tok)->getName(), ";")) {
-    *Rest = Tok->next();
-    return new BlockNode{nullptr};
-  }
-
-  // "return expr" ";"
-  if (isa<KeyWordToken>(Tok)) {
-    std::string_view KeywordName = 
-        dynamic_cast<KeyWordToken *>(Tok)->getKeyWordName();
-    Node *Nd = Node::createUnaryNode(
-        Node::NKind::ND_KEYROWD, createExpr(&Tok, Tok->next()), KeywordName);
+  // 1. "return expr" ";"
+  if (isa<KeywordToken>(Tok) &&
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
+       c_cyntax::CKType::CK_RETURN)) {
+    c_cyntax::CKType KeywordType = 
+        dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
+    Node *Nd = 
+        Node::createKeywordNode(KeywordType, createExpr(&Tok, Tok->next()));
     
     *Rest = skipPunct(Tok, ";");
+    return Nd;
+  }
+
+  // 2. parse if-else statment
+  // "if " "(" expr ")" stmt "else" stmt
+  if (isa<KeywordToken>(Tok) && 
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
+       c_cyntax::CKType::CK_IF)) {
+    KeywordToken *KT = dynamic_cast<KeywordToken *>(Tok);
+    IfCondNode *Nd = dynamic_cast<IfCondNode *>(
+        Node::createKeywordNode(KT->getKeywordType(), nullptr, nullptr));
+
+    Tok = skipPunct(Tok->next(), "(");
+    Nd->setCond(createExpr(&Tok, Tok));
+    Tok = skipPunct(Tok, ")");
+
+    // stmt, match condition.
+    Nd->setBody(createStmt(&Tok, Tok));
+
+    // "else" not match condition.
+    if (isa<KeywordToken>(Tok) && 
+        (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
+        c_cyntax::CKType::CK_ELSE)) {
+      Nd->setElseN(createStmt(&Tok, Tok->next()));
+    }
+
+    *Rest = Tok;
     return Nd;
   }
 
@@ -101,8 +134,15 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
 
 // exprStmt = expr ";"
 Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
-  Node *Nd =
-      Node::createUnaryNode(Node::NKind::ND_EXPR_STMT, createExpr(&Tok, Tok));
+  // ";" -- aka empty statement
+  if (isa<PunctToken>(Tok) &&
+      ::equal(dynamic_cast<PunctToken *>(Tok)->getName(), ";")) {
+    *Rest = Tok->next();
+    return new BlockNode{nullptr};
+  }
+  // expr ";"
+  Node *Nd = Node::createUnaryNode(Node::NKind::ND_EXPR_STMT,
+                                   createExpr(&Tok, Tok));
   *Rest = skipPunct(Tok, ";");
   return Nd;
 }
@@ -288,10 +328,6 @@ Node *ASTContext::createMulExpr(Token **Rest, Token *Tok) {
 // parse unary node.
 // unary = ("+" | "-") unary | primary
 Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
-  if (isa<PunctToken>(Tok) &&
-      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
-    return createUnaryExpr(Rest, Tok->next());
-
   // "+" unary
   if (isa<PunctToken>(Tok) &&
       equal(dynamic_cast<PunctToken *>(Tok)->getName(), "+"))
@@ -336,6 +372,9 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
     return Node::createVarNode(Var);
   }
 
+  std::cout << "Tok kind: " << dynamic_cast<PunctToken *>(Tok)->getName()
+            << std::endl;
+  Tok->dump();
   logging::error("Expected an expression");
   return nullptr;
 }

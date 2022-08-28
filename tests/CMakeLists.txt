@@ -61,3 +61,11 @@ add_test(NAME 12_1 COMMAND rvcc "{ 1; {2;} return 3; }")
 
 # [13] support empty statement.
 add_test(NAME 13_1 COMMAND rvcc "{ ; ; ; {2;} return 3; }")
+
+# [14] support if statement
+add_test(NAME 15_1 COMMAND rvcc "{ if (0) return 2; return 3; }")
+add_test(NAME 15_2 COMMAND rvcc "{ if (1-1) return 2; return 3; }")
+add_test(NAME 15_3 COMMAND rvcc "{ if (1) return 2; return 3; }")
+add_test(NAME 15_4 COMMAND rvcc "{ if (2-1) return 2; return 3; }")
+add_test(NAME 15_5 COMMAND rvcc "{ if (0) { 1; 2; return 3; } else { return 4; } }")
+add_test(NAME 15_6 COMMAND rvcc "{ if (1) { 1; 2; return 3; } else { return 4; } }")
