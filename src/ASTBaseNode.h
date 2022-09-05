@@ -40,7 +40,8 @@ public:
 
         static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
         static Node *createKeywordNode(c_cyntax::CKType, Node *N1,
-                                       Node *N2 = nullptr, Node *N3 = nullptr);
+                                       Node *N2 = nullptr, Node *N3 = nullptr,
+                                       Node *N4 = nullptr);
         static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
         static Node *createNumNode(int Val);
         static Node *createVarNode(VarObj *Var);
@@ -230,6 +231,31 @@ public:
 private:
   Node *CondNode_;
   Node *ElseNode_;
+};
+
+class ForLoopNode : public KeywordNode {
+public:
+  // explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Cond, Node *Init,
+  // Node *Body, Node *Inc)
+  explicit ForLoopNode(c_cyntax::CKType KeywordType, Node *Latch, Node *Header,
+                       Node *Body, Node *Exiting)
+      : KeywordNode(KeywordType, Body), Latch_(Latch), Header_(Header),
+        Exiting_(Exiting) {}
+
+  [[nodiscard]] Node *getLatch() const { return Latch_; }
+  [[nodiscard]] Node *getHeader() const { return Header_; }
+  [[nodiscard]] Node *getExiting() const { return Exiting_; }
+
+public:
+  static unsigned getCount() {
+    static unsigned Count = 1;
+    return Count++;
+  }
+
+private:
+  Node *Latch_;
+  Node *Header_;
+  Node *Exiting_;
 };
 
 class VarObj; // old variable info class.

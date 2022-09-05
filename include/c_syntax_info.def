@@ -5,6 +5,7 @@
 C_KEYWORD_INFO(RETURN,          "return",         "return"    )
 C_KEYWORD_INFO(IF,              "if",             "if"        )
 C_KEYWORD_INFO(ELSE,            "else",           "else"      )
+C_KEYWORD_INFO(FOR,             "for",            "for"       )
 
 C_KEYWORD_INFO(CHAR,            "char",           "char"      )
 C_KEYWORD_INFO(SHORT,           "short",          "short"     )

@@ -5,15 +5,11 @@
 #include "ASTContext.h"
 #include "ASTBaseNode.h"
 #include "BasicObjects.h"
-#include "CGAsm.h"
 #include "c_syntax.h"
 #include "rvcc.h"
 #include "tokenize.h"
 #include <cassert>
-#include <cstdarg>
 #include <iostream>
-#include <map>
-#include <memory>
 #include <stack>
 #include <string>
 
@@ -35,8 +31,11 @@ static VarObj *newLVar(std::string_view Name) {
 // skip specified string
 static Token *skipPunct(Token *Tok, std::string_view Str) {
   if (!isa<PunctToken>(Tok) ||
-      dynamic_cast<PunctToken *>(Tok)->getName() != Str)
+      dynamic_cast<PunctToken *>(Tok)->getName() != Str) {
+    std::cout << "error: \n";
+    Tok->dump();
     logging::error("expect %s", Str.data());
+  }
   return Tok->next();
 }
 
@@ -80,8 +79,9 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 // parse statement.
 // stmt = "return" expr ";"  |
 //        "if" "(" expr ")" stmt "else" stmt |
+//        "for" "(" exprStmt expr ? ";" expr? ")" stmt
 //        "{" compoundStmt |
-//        exprStmt   
+//        exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   // 1. "return expr" ";"
   if (isa<KeywordToken>(Tok) &&
@@ -91,7 +91,7 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
         dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
     Node *Nd = 
         Node::createKeywordNode(KeywordType, createExpr(&Tok, Tok->next()));
-    
+
     *Rest = skipPunct(Tok, ";");
     return Nd;
   }
@@ -123,12 +123,47 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     return Nd;
   }
 
-  // "{" compundStmt.
+  // 3. parse for statement.
+  // "for" "(" exprStmt expr ? ";" expr? ")" stmt
+  if (isa<KeywordToken>(Tok) &&
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+       c_cyntax::CKType::CK_FOR)) {
+    c_cyntax::CKType KeywordType =
+        dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
+    // explicit ForLoopNode(c_cyntax::CKType KeywordType, Node *Latch, Node
+    // *Header, Node *Body, Node *Exiting)
+    Tok = skipPunct(Tok->next(), "(");
+    Node *Header = createExprStmt(&Tok, Tok);
+
+    // expr?
+    Node *Latch = nullptr;
+    if (!isa<PunctToken>(Tok) ||
+        !equal(dynamic_cast<PunctToken *>(Tok)->getName(), ";"))
+      Latch = createExpr(&Tok, Tok);
+
+    // ";"
+    Tok = skipPunct(Tok, ";");
+
+    // expr?
+    Node *Exiting = nullptr;
+    if (!isa<PunctToken>(Tok) ||
+        !equal(dynamic_cast<PunctToken *>(Tok)->getName(), ")"))
+      Exiting = createExpr(&Tok, Tok);
+
+    Tok = skipPunct(Tok, ")");
+
+    // Body stmt
+    Node *Body = createStmt(Rest, Tok);
+
+    return Node::createKeywordNode(KeywordType, Latch, Header, Body, Exiting);
+  }
+
+  // 4. "{" compundStmt.
   if (isa<PunctToken>(Tok) &&
       equal(dynamic_cast<PunctToken *>(Tok)->getName(), "{"))
     return compoundStmt(Rest, Tok->next());
 
-  // exprStmt.
+  // 5. exprStmt.
   return createExprStmt(Rest, Tok);
 }
 

@@ -12,7 +12,7 @@ KeywordNode::KeywordNode(c_cyntax::CKType KeywordType, Node *Body)
       KeyStrToTypeMap = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
   {c_cyntax::CKType::CK_##Keyword, Expr},
-#include "c_syntax_info.def"
+#include "../include/c_syntax_info.def"
       };
   KeywordType_ = KeywordType;
   assert(KeyStrToTypeMap.count(KeywordType_) &&
@@ -21,7 +21,7 @@ KeywordNode::KeywordNode(c_cyntax::CKType KeywordType, Node *Body)
 };
 
 Node *Node::createKeywordNode(c_cyntax::CKType Kind, Node *N1, Node *N2,
-                              Node *N3) {
+                              Node *N3, Node *N4) {
   Node *Nd = nullptr;
   switch (Kind) {
   case c_cyntax::CKType::CK_IF:
@@ -30,6 +30,10 @@ Node *Node::createKeywordNode(c_cyntax::CKType Kind, Node *N1, Node *N2,
     break;
   case c_cyntax::CKType::CK_RETURN:
     Nd = new KeywordNode{Kind, N1};
+    break;
+  case c_cyntax::CKType::CK_FOR:
+    Nd = new ForLoopNode(Kind, N1 /* Latch */, N2 /* Header */, N3 /* Body */,
+                         N4 /* Exiting */);
     break;
   default:
     logging::unreachable("cannot handle this keyword type: ", static_cast<unsigned>(Kind));

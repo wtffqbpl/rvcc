@@ -104,20 +104,6 @@ private:
 // 运算符Token
 class PunctToken : public Token {
 public:
-  enum class PunctTy : unsigned {
-    PT_L_BRACE,
-    PT_R_BRACE,
-    PT_L_PAREN,
-    PT_R_PAREN,
-    PT_L_MID_PAREN,
-    PT_R_MID_PAREN,
-    PT_EQ,
-    PT_LT,
-    PT_LE,
-    PT_GT,
-  };
-
-public:
   explicit PunctToken(std::string_view &&Name)
       : Token(Token::TKind::TK_PUNCT, nullptr, Name.size()), Name_(Name) {}
 

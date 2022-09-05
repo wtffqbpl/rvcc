@@ -15,7 +15,7 @@ std::map<const std::string_view, c_cyntax::CKType>
     KeywordToken::StrKeywordMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
   {Expr, c_cyntax::CKType::CK_##Keyword},
-#include "c_syntax_info.def"
+#include "../include/c_syntax_info.def"
 };
 
 // @brief [a-z,A-Z]
@@ -26,55 +26,6 @@ static bool isValidIndent_1(char achar) {
 // @brief [a-z,A-Z]
 static bool isValidIndent_2(char achar) {
   return std::isalpha(achar) || std::isdigit(achar) || achar == '_';
-}
-
-static std::string getKindStr(Token::TKind Kind) {
-#define TokenTypeName(Kind)                                                    \
-  { Token::TKind::Kind, #Kind }
-  static std::map<Token::TKind, std::string> KindToStrMap = {
-      TokenTypeName(TK_IDENT),
-      TokenTypeName(TK_PUNCT),
-      TokenTypeName(TK_NUM),
-      TokenTypeName(TK_KEYWORD),
-  };
-  return KindToStrMap[Kind];
-}
-
-void Token::dump(unsigned StatementIndent, unsigned Depth) {
-  // terminator.
-  if (Kind_ == Token::TKind::TK_EOF)
-    return;
-
-  // Update indent depth.
-  ++Depth;
-
-  for (unsigned i = 0; i < Depth; ++i)
-    std::cout << "  ";
-  std::cout << "{" << getKindStr(Kind_);
-  switch (Kind_) {
-  case Token::TKind::TK_NUM:
-    dynamic_cast<NumToken *>(this)->print(std::cout);
-    break;
-  case Token::TKind::TK_PUNCT: {
-    auto Tok = dynamic_cast<PunctToken *>(this);
-    Tok->print(std::cout);
-    if (Tok->getName() == ";")
-      Depth = StatementIndent;
-    break;
-  }
-  case Token::TKind::TK_IDENT:
-    dynamic_cast<IndentToken *>(this)->print(std::cout);
-    break;
-  case Token::TKind::TK_KEYWORD:
-    dynamic_cast<KeywordToken *>(this)->print(std::cout);
-    break;
-  default:
-    assert("No this type of token.");
-    break;
-  }
-  std::cout << std::endl;
-
-  Next_->dump(StatementIndent, Depth);
 }
 
 TokenContext &TokenContext::instance() {
@@ -193,4 +144,53 @@ Token *TokenContext::tokenize(std::string &&input) {
   Cur->setNext(create(Token::TKind::TK_EOF, It, It));
 
   return Head.next();
+}
+
+static std::string getKindStr(Token::TKind Kind) {
+#define TokenTypeName(Kind)                                                    \
+  { Token::TKind::Kind, #Kind }
+  static std::map<Token::TKind, std::string> KindToStrMap = {
+      TokenTypeName(TK_IDENT),
+      TokenTypeName(TK_PUNCT),
+      TokenTypeName(TK_NUM),
+      TokenTypeName(TK_KEYWORD),
+  };
+  return KindToStrMap[Kind];
+}
+
+void Token::dump(unsigned StatementIndent, unsigned Depth) {
+  // terminator.
+  if (Kind_ == Token::TKind::TK_EOF)
+    return;
+
+  // Update indent depth.
+  ++Depth;
+
+  for (unsigned i = 0; i < Depth; ++i)
+    std::cout << "  ";
+  std::cout << "{" << getKindStr(Kind_);
+  switch (Kind_) {
+  case Token::TKind::TK_NUM:
+    dynamic_cast<NumToken *>(this)->print(std::cout);
+    break;
+  case Token::TKind::TK_PUNCT: {
+    auto Tok = dynamic_cast<PunctToken *>(this);
+    Tok->print(std::cout);
+    if (Tok->getName() == ";")
+      Depth = StatementIndent;
+    break;
+  }
+  case Token::TKind::TK_IDENT:
+    dynamic_cast<IndentToken *>(this)->print(std::cout);
+    break;
+  case Token::TKind::TK_KEYWORD:
+    dynamic_cast<KeywordToken *>(this)->print(std::cout);
+    break;
+  default:
+    assert("No this type of token.");
+    break;
+  }
+  std::cout << std::endl;
+
+  Next_->dump(StatementIndent, Depth);
 }

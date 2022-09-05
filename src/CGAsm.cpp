@@ -85,20 +85,48 @@ void CodeGenContext::genKeywordCode(KeywordNode *KNode) {
     genExpr(IfNode->getCond());
 
     // 3. check whether result is 0.
-    std::cout << "  beqz a0, .L.else." << C << std::endl;
+    std::cout << "  beqz a0, .L.if.else." << C << std::endl;
 
     // 4. generate if body statement.
     genStmt(IfNode->getBody());
     // jump to exiting block.
-    std::cout << "  j .L.end." << C << std::endl;
+    std::cout << "  j .L.if.end." << C << std::endl;
 
     // 5. generate else body statement.
-    std::cout << ".L.else." << C << std::endl;
+    std::cout << ".L.if.else." << C << std::endl;
     if (IfNode->getElse())
       genStmt(IfNode->getElse());
 
     // 6. end label for if statement.
-    std::cout << ".L.end." << C << std::endl;
+    std::cout << ".L.if.end." << C << std::endl;
+    break;
+  }
+  case c_cyntax::CKType::CK_FOR: {
+    ForLoopNode *ForNode = dynamic_cast<ForLoopNode *>(KNode);
+    // generate for Header;
+    genStmt(ForNode->getHeader());
+
+    // generate for loop tag:
+    unsigned C = ForLoopNode::getCount();
+    std::cout << ".L.for.begin." << C << ":" << std::endl;
+    if (ForNode->getLatch()) {
+      // generate Latch.
+      genExpr(ForNode->getLatch());
+      // check whether condition result is zero. and then goto end label
+      // when condition result is zero.
+      std::cout << "  beqz a0, .L.for.end." << C << std::endl;
+    }
+
+    // generate for body.
+    genStmt(ForNode->getBody());
+
+    // generate exiting.
+    if (ForNode->getExiting()) {
+      genExpr(ForNode->getExiting());
+    }
+
+    std::cout << "  j.L.for.begin." << C << ":" << std::endl;
+    std::cout << "  .L.for.end." << C << std::endl;
     break;
   }
   default:
