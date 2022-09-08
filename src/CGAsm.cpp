@@ -68,14 +68,14 @@ void CodeGenContext::codegen(Function *Prog) {
 }
 
 void CodeGenContext::genKeywordCode(KeywordNode *KNode) {
-  c_cyntax::CKType Type = KNode->getKeywordType();
+  c_syntax::CKType Type = KNode->getKeywordType();
   switch(Type) {
-  case c_cyntax::CKType::CK_RETURN:
+  case c_syntax::CKType::CK_RETURN:
     genExpr(KNode->getBody());
     std::cout << "  j .L.return" << std::endl;
     break;
 
-  case c_cyntax::CKType::CK_IF: {
+  case c_syntax::CKType::CK_IF: {
     // 1. generate if statement.
     auto *IfNode = dynamic_cast<IfCondNode *>(KNode);
     // code body counting.
@@ -101,10 +101,11 @@ void CodeGenContext::genKeywordCode(KeywordNode *KNode) {
     std::cout << ".L.if.end." << C << std::endl;
     break;
   }
-  case c_cyntax::CKType::CK_FOR: {
+  case c_syntax::CKType::CK_FOR: {
     ForLoopNode *ForNode = dynamic_cast<ForLoopNode *>(KNode);
     // generate for Header;
-    genStmt(ForNode->getHeader());
+    if (ForNode->getHeader())
+      genStmt(ForNode->getHeader());
 
     // generate for loop tag:
     unsigned C = ForLoopNode::getCount();

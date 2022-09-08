@@ -5,7 +5,7 @@
 #include "ASTContext.h"
 #include "ASTBaseNode.h"
 #include "BasicObjects.h"
-#include "c_syntax.h"
+#include "../include/c_syntax.h"
 #include "rvcc.h"
 #include "tokenize.h"
 #include <cassert>
@@ -80,17 +80,17 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 // stmt = "return" expr ";"  |
 //        "if" "(" expr ")" stmt "else" stmt |
 //        "for" "(" exprStmt expr ? ";" expr? ")" stmt
+//        "while" "(" expr ")" stmt
 //        "{" compoundStmt |
 //        exprStmt
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   // 1. "return expr" ";"
   if (isa<KeywordToken>(Tok) &&
       (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
-       c_cyntax::CKType::CK_RETURN)) {
-    c_cyntax::CKType KeywordType = 
-        dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
+       c_syntax::CKType::CK_RETURN)) {
     Node *Nd = 
-        Node::createKeywordNode(KeywordType, createExpr(&Tok, Tok->next()));
+        Node::createKeywordNode(c_syntax::CKType::CK_RETURN, 
+                                createExpr(&Tok, Tok->next()));
 
     *Rest = skipPunct(Tok, ";");
     return Nd;
@@ -100,7 +100,7 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   // "if " "(" expr ")" stmt "else" stmt
   if (isa<KeywordToken>(Tok) && 
       (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
-       c_cyntax::CKType::CK_IF)) {
+       c_syntax::CKType::CK_IF)) {
     KeywordToken *KT = dynamic_cast<KeywordToken *>(Tok);
     IfCondNode *Nd = dynamic_cast<IfCondNode *>(
         Node::createKeywordNode(KT->getKeywordType(), nullptr, nullptr));
@@ -115,7 +115,7 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     // "else" not match condition.
     if (isa<KeywordToken>(Tok) && 
         (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
-        c_cyntax::CKType::CK_ELSE)) {
+        c_syntax::CKType::CK_ELSE)) {
       Nd->setElseN(createStmt(&Tok, Tok->next()));
     }
 
@@ -127,10 +127,10 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   // "for" "(" exprStmt expr ? ";" expr? ")" stmt
   if (isa<KeywordToken>(Tok) &&
       (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
-       c_cyntax::CKType::CK_FOR)) {
-    c_cyntax::CKType KeywordType =
+       c_syntax::CKType::CK_FOR)) {
+    c_syntax::CKType KeywordType =
         dynamic_cast<KeywordToken *>(Tok)->getKeywordType();
-    // explicit ForLoopNode(c_cyntax::CKType KeywordType, Node *Latch, Node
+    // explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Latch, Node
     // *Header, Node *Body, Node *Exiting)
     Tok = skipPunct(Tok->next(), "(");
     Node *Header = createExprStmt(&Tok, Tok);
@@ -156,6 +156,26 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     Node *Body = createStmt(Rest, Tok);
 
     return Node::createKeywordNode(KeywordType, Latch, Header, Body, Exiting);
+  }
+
+  // 4. while statement.
+  if (isa<KeywordToken>(Tok) &&
+      dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+          c_syntax::CKType::CK_WHILE) {
+    // exprStmt.
+    assert(isa<PunctToken>(Tok->next()) && "must be a \"(\" punctuation.");
+    Tok = skipPunct(Tok->next(), "(");
+
+    // latch.
+    Node *Latch = createExpr(&Tok, Tok);
+    assert(isa<PunctToken>(Tok) && "must be a \")\" punctuation.");
+    Tok = skipPunct(Tok, ")");
+
+    Node *Body = createStmt(Rest, Tok);
+
+    // generate for loop node, rather than while node.
+    return Node::createKeywordNode(c_syntax::CKType::CK_FOR, Latch, nullptr,
+                                   Body, nullptr);
   }
 
   // 4. "{" compundStmt.

@@ -5,13 +5,13 @@
 #include <map>
 #include <unordered_map>
 
-KeywordNode::KeywordNode(c_cyntax::CKType KeywordType, Node *Body)
+KeywordNode::KeywordNode(c_syntax::CKType KeywordType, Node *Body)
     : Node(NKind::ND_KEYROWD, getTypeName(Node::NKind::ND_KEYROWD), nullptr),
       BodyNode_(Body) {
-  static const std::unordered_map<c_cyntax::CKType, const std::string_view>
+  static const std::unordered_map<c_syntax::CKType, const std::string_view>
       KeyStrToTypeMap = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
-  {c_cyntax::CKType::CK_##Keyword, Expr},
+  {c_syntax::CKType::CK_##Keyword, Expr},
 #include "../include/c_syntax_info.def"
       };
   KeywordType_ = KeywordType;
@@ -20,18 +20,18 @@ KeywordNode::KeywordNode(c_cyntax::CKType KeywordType, Node *Body)
   KeywordName_ = KeyStrToTypeMap.at(KeywordType);
 };
 
-Node *Node::createKeywordNode(c_cyntax::CKType Kind, Node *N1, Node *N2,
+Node *Node::createKeywordNode(c_syntax::CKType Kind, Node *N1, Node *N2,
                               Node *N3, Node *N4) {
   Node *Nd = nullptr;
   switch (Kind) {
-  case c_cyntax::CKType::CK_IF:
-  case c_cyntax::CKType::CK_ELSE:
+  case c_syntax::CKType::CK_IF:
+  case c_syntax::CKType::CK_ELSE:
     Nd = new IfCondNode{Kind, N1 /* Cond */, N2 /* Body */, N3 /* ElseN */ };
     break;
-  case c_cyntax::CKType::CK_RETURN:
+  case c_syntax::CKType::CK_RETURN:
     Nd = new KeywordNode{Kind, N1};
     break;
-  case c_cyntax::CKType::CK_FOR:
+  case c_syntax::CKType::CK_FOR:
     Nd = new ForLoopNode(Kind, N1 /* Latch */, N2 /* Header */, N3 /* Body */,
                          N4 /* Exiting */);
     break;

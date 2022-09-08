@@ -1,11 +1,15 @@
 #ifndef C_KEYWORD_INFO
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)
 #endif
+#ifndef C_PUNCTUATION_INFO
+#define C_PUNCTUATION_INFO(Keyword, Expr, Desc)
+#endif
 
 C_KEYWORD_INFO(RETURN,          "return",         "return"    )
 C_KEYWORD_INFO(IF,              "if",             "if"        )
 C_KEYWORD_INFO(ELSE,            "else",           "else"      )
 C_KEYWORD_INFO(FOR,             "for",            "for"       )
+C_KEYWORD_INFO(WHILE,           "while",          "while"     )
 
 C_KEYWORD_INFO(CHAR,            "char",           "char"      )
 C_KEYWORD_INFO(SHORT,           "short",          "short"     )
@@ -14,4 +18,29 @@ C_KEYWORD_INFO(UNSIGNED,        "unsigned",       "unsigned"  )
 C_KEYWORD_INFO(FLOAT,           "float",          "float"     )
 C_KEYWORD_INFO(DOUBLE,          "double",         "double"    )
 
-#undef C_KEYWORD_INFO 
+/*
+*@brief punctuation for C language.
+*/
+C_PUNCTUATION_INFO(EQ,                "==",             "equal" )
+C_PUNCTUATION_INFO(NOT_EQ,            "!=",             "not equal" )
+
+C_PUNCTUATION_INFO(LT,                "<",             "less than" )
+C_PUNCTUATION_INFO(LE,                "<=",            "less than or equal" )
+C_PUNCTUATION_INFO(GT,                ">",              "greater than" )
+C_PUNCTUATION_INFO(GE,                ">=",             "greater than or equal" )
+C_PUNCTUATION_INFO(GE,                ">=",             "greater than or equal" )
+
+C_PUNCTUATION_INFO(L_PARENTHESIS,     "(",              "left paraentheses" )
+C_PUNCTUATION_INFO(R_PARENTHESIS,     ")",              "right paraentheses" )
+C_PUNCTUATION_INFO(L_CURLY_BRACE,     "{",              "left curly brace" )
+C_PUNCTUATION_INFO(R_CURLY_BRACE,     "}",              "right curly brace" )
+C_PUNCTUATION_INFO(L_SQ_BRACKET,      "[",              "left square brackets" )
+C_PUNCTUATION_INFO(R_SQ_BRACKET,      "]",              "right square brackets" )
+
+C_PUNCTUATION_INFO(M_PLUS,            "+",              "plus operator" )
+C_PUNCTUATION_INFO(M_MINUS,           "-",              "minus operator" )
+C_PUNCTUATION_INFO(M_DIV,             "/",              "division operator" )
+C_PUNCTUATION_INFO(M_MULTIPLY,        "*",              "multiply operator" )
+
+#undef C_KEYWORD_INFO
+#undef C_PUNCTUATION_INFO

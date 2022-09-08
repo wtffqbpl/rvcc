@@ -1,6 +1,6 @@
 #ifndef PRASE_H
 #define PRASE_H
-#include "c_syntax.h"
+#include "../include/c_syntax.h"
 #include "logs.h"
 #include <cassert>
 #include <cstdarg>
@@ -39,7 +39,7 @@ public:
 	void setNext(Node *Next) { Next_ = Next; }
 
         static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
-        static Node *createKeywordNode(c_cyntax::CKType, Node *N1,
+        static Node *createKeywordNode(c_syntax::CKType, Node *N1,
                                        Node *N2 = nullptr, Node *N3 = nullptr,
                                        Node *N4 = nullptr);
         static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
@@ -161,11 +161,11 @@ private:
 
 class KeywordNode : public Node {
 public:
-  explicit KeywordNode(c_cyntax::CKType KeywordType, Node *L);
+  explicit KeywordNode(c_syntax::CKType KeywordType, Node *L);
 
   [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
   [[nodiscard]] Node *getBody() { return BodyNode_; }
-  [[nodiscard]] c_cyntax::CKType getKeywordType() const { return KeywordType_; }
+  [[nodiscard]] c_syntax::CKType getKeywordType() const { return KeywordType_; }
   void setBody(Node *Body) { BodyNode_ = Body; }
   void print(std::ostream &os) const override {
     os << getKeywordName() << " " << Node::getTypeName(getKind());
@@ -178,7 +178,7 @@ public:
 
 private:
   Node *BodyNode_;
-  c_cyntax::CKType KeywordType_;
+  c_syntax::CKType KeywordType_;
   std::string_view KeywordName_;
 };
 
@@ -201,7 +201,7 @@ private:
  */
 class IfCondNode : public KeywordNode {
 public:
-  explicit IfCondNode(c_cyntax::CKType KeywordType, Node *Cond, Node *Body,
+  explicit IfCondNode(c_syntax::CKType KeywordType, Node *Cond, Node *Body,
                       Node *ElseN)
       : KeywordNode(KeywordType, Body), CondNode_(Cond), ElseNode_(ElseN) {}
   [[nodiscard]] Node *getCond() const { return CondNode_; }
@@ -213,8 +213,8 @@ public:
 public:
   static bool isa(const KeywordNode *N) {
     switch (N->getKeywordType()) {
-    case c_cyntax::CKType::CK_IF:
-    case c_cyntax::CKType::CK_ELSE:
+    case c_syntax::CKType::CK_IF:
+    case c_syntax::CKType::CK_ELSE:
       return true;
     default:
       break;
@@ -237,7 +237,7 @@ class ForLoopNode : public KeywordNode {
 public:
   // explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Cond, Node *Init,
   // Node *Body, Node *Inc)
-  explicit ForLoopNode(c_cyntax::CKType KeywordType, Node *Latch, Node *Header,
+  explicit ForLoopNode(c_syntax::CKType KeywordType, Node *Latch, Node *Header,
                        Node *Body, Node *Exiting)
       : KeywordNode(KeywordType, Body), Latch_(Latch), Header_(Header),
         Exiting_(Exiting) {}

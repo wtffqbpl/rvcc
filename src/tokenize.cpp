@@ -1,5 +1,5 @@
 #include "tokenize.h"
-#include "c_syntax.h"
+#include "../include/c_syntax.h"
 #include "rvcc.h"
 #include <cassert>
 #include <cstdarg>
@@ -11,10 +11,10 @@
 
 #define DEBUG_TYPE "tokens"
 
-std::map<const std::string_view, c_cyntax::CKType>
+std::map<const std::string_view, c_syntax::CKType>
     KeywordToken::StrKeywordMap_ = {
 #define C_KEYWORD_INFO(Keyword, Expr, Desc)                                    \
-  {Expr, c_cyntax::CKType::CK_##Keyword},
+  {Expr, c_syntax::CKType::CK_##Keyword},
 #include "../include/c_syntax_info.def"
 };
 

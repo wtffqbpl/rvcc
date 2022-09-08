@@ -1,7 +1,7 @@
 #ifndef TOKENIZE_H
 #define TOKENIZE_H
 
-#include "c_syntax.h"
+#include "../include/c_syntax.h"
 #include <iostream>
 #include <map>
 #include <string_view>
@@ -67,18 +67,18 @@ public:
     return StrKeywordMap_.find(InKeyWord) != StrKeywordMap_.end();
   }
 
-  [[nodiscard]] c_cyntax::CKType getKeywordType() const { return KeywordType_; }
+  [[nodiscard]] c_syntax::CKType getKeywordType() const { return KeywordType_; }
 
 private:
-  static c_cyntax::CKType
+  static c_syntax::CKType
   getKeywordTypeByName(const std::string_view &Keyword) {
     return StrKeywordMap_[Keyword];
   }
 
 private:
   // @brief for token debug : string -> keyword type.
-  static std::map<const std::string_view, c_cyntax::CKType> StrKeywordMap_;
-  c_cyntax::CKType KeywordType_;
+  static std::map<const std::string_view, c_syntax::CKType> StrKeywordMap_;
+  c_syntax::CKType KeywordType_;
   const std::string_view Keyword_;
 };
 

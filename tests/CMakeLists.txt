@@ -72,4 +72,7 @@ add_test(NAME 15_6 COMMAND rvcc "{ if (1) { 1; 2; return 3; } else { return 4; }
 
 # [16] support for statement.
 add_test(NAME 16_1 COMMAND rvcc "{ i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }")
-add_test(NAME 16_2 COMMAND rvcc "{ for (;;) {return 3;} return 5; }")
+add_test(NAME for_2 COMMAND rvcc "{ for (;;) {return 3;} return 5; }")
+
+# [17] support while statement.
+add_test(NAME while_1 COMMAND rvcc "{ i=0; while(i<10) { i=i+1; } return i; }")
