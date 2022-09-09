@@ -164,6 +164,7 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
           !::equal(dynamic_cast<PunctToken *>(Tok)->getName(), "}"))) {
     Cur->setNext(createStmt(&Tok, Tok));
     Cur = Cur->getNext();
+    addType(Cur);
   }
 
   // Nd 的 Body存储了 {} 内解析的语句
@@ -195,24 +196,24 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   if (isa<KeywordToken>(Tok) &&
       (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
        c_syntax::CKType::CK_IF)) {
-    KeywordToken *KT = dynamic_cast<KeywordToken *>(Tok);
-    IfCondNode *Nd = dynamic_cast<IfCondNode *>(
-        Node::createKeywordNode(KT->getKeywordType(), nullptr));
+    auto &KT = *dynamic_cast<KeywordToken *>(Tok);
+    auto &Nd = *dynamic_cast<IfCondNode *>(
+        Node::createKeywordNode(KT.getKeywordType(), nullptr));
     Tok = skipPunct(Tok->next(), "(");
-    Nd->setCond(createExpr(&Tok, Tok));
+    Nd.setCond(createExpr(&Tok, Tok));
     Tok = skipPunct(Tok, ")");
 
     // stmt, 符合条件后的语句
-    Nd->setBody(createStmt(&Tok, Tok));
+    Nd.setBody(createStmt(&Tok, Tok));
 
     // ("else" stmt)? 不符合条件后的语句
     if (isa<KeywordToken>(Tok) &&
         (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
          c_syntax::CKType::CK_ELSE))
-      Nd->setElseN(createStmt(&Tok, Tok->next()));
+      Nd.setElseN(createStmt(&Tok, Tok->next()));
 
     *Rest = Tok;
-    return Nd;
+    return &Nd;
   }
   // "for" "(" exprStmt expr? ";" expr? ")" stmt
   if (isa<KeywordToken>(Tok) &&
@@ -391,6 +392,59 @@ Node *ASTContext::createRelationalExpr(Token **Rest, Token *Tok) {
   return Nd;
 }
 
+static Node *createAdd(Node *Lhs, Node *Rhs) {
+  addType(Lhs);
+  addType(Rhs);
+
+  // cannot handle ptr + ptr expression.
+  assert((Lhs->isIntegerTy() || Rhs->isIntegerTy()) &&
+         "Cannot handle (ptr + ptr) expression.");
+
+  // num + num
+  if (Lhs->isIntegerTy() && Rhs->isIntegerTy())
+    return Node::createBinaryNode(Node::NKind::ND_ADD, Lhs, Rhs);
+
+  // commute num + ptr -> ptr + num
+  if (Lhs->isIntegerTy() && Rhs->isPtrTy())
+    std::swap(Lhs, Rhs);
+
+  // ptr + num -> (char *)ptr + 8 * num
+  // FIXME: should we compute sizeof(decltype(*ptr)) * num ?
+  Rhs =
+      Node::createBinaryNode(Node::NKind::ND_MUL, Rhs, Node::createNumNode(8));
+  return Node::createBinaryNode(Node::NKind::ND_ADD, Lhs, Rhs);
+}
+
+static Node *createSub(Node *Lhs, Node *Rhs) {
+  addType(Lhs);
+  addType(Rhs);
+
+  // num - num
+  if (Lhs->isIntegerTy() && Rhs->isIntegerTy())
+    return Node::createBinaryNode(Node::NKind::ND_SUB, Lhs, Rhs);
+
+  // ptr - num
+  if (Lhs->isPtrTy() && Rhs->isIntegerTy()) {
+    Rhs = Node::createBinaryNode(Node::NKind::ND_MUL, Rhs,
+                                 Node::createNumNode(8));
+    addType(Rhs);
+    Node *Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Lhs, Rhs);
+    Nd->setTy(Lhs->getTy());
+    return Nd;
+  }
+
+  // ptr - ptr. return element number.
+  if (Lhs->isPtrTy() && Rhs->isPtrTy()) {
+    Node *Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Lhs, Rhs);
+    Nd->setTy(Node::Type::getIntTy());
+    return Node::createBinaryNode(Node::NKind::ND_DIV, Nd,
+                                  Node::createNumNode(8));
+  }
+
+  assert("Cannot other cases.");
+  return nullptr;
+}
+
 Node *ASTContext::createAddExpr(Token **Rest, Token *Tok) {
   // mul
   Node *Nd = createMulExpr(&Tok, Tok);
@@ -402,15 +456,13 @@ Node *ASTContext::createAddExpr(Token **Rest, Token *Tok) {
 
     auto &PunctTok = *dynamic_cast<PunctToken *>(Tok);
     if (equal(PunctTok.getName(), "+")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_ADD, Nd,
-                                  createMulExpr(&Tok, Tok->next()));
+      Nd = createAdd(Nd, createMulExpr(&Tok, Tok->next()));
       continue;
     }
 
     // "-" mul
     if (equal(PunctTok.getName(), "-")) {
-      Nd = Node::createBinaryNode(Node::NKind::ND_SUB, Nd,
-                                  createMulExpr(&Tok, Tok->next()));
+      Nd = createSub(Nd, createMulExpr(&Tok, Tok->next()));
       continue;
     }
 

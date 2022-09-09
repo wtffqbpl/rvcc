@@ -32,9 +32,11 @@ public:
                   Type *Base = nullptr)
         : Kind_(TyKind), Base_(Base) {}
 
-    [[nodiscard]] bool isInteger(Type *Ty) {
-      return Ty->Kind_ == TypeSystemKind::TY_INT;
+    [[nodiscard]] bool isInteger() const {
+      return Kind_ == TypeSystemKind::TY_INT;
     }
+    [[nodiscard]] bool isPtr() const { return Kind_ == TypeSystemKind::TY_PTR; }
+    [[nodiscard]] Type *getBase() { return Base_; }
     [[nodiscard]] Type *getBase() const { return Base_; }
 
   public:
@@ -59,11 +61,16 @@ public:
   Node() = delete;
   explicit Node(Node::NKind Kind, const std::string_view &Name,
                 Node *Next = nullptr)
-      : Kind_(Kind), Name_(Name), Next_(Next), Ty_(nullptr) {}
+      : Kind_(Kind), Name_(Name), Next_(Next), Ty_(Type::getIntTy()) {}
 
   [[nodiscard]] Node *getNext() { return Next_; }
-  [[nodiscard]] Type *getTy() const { return Ty_; }
   void setNext(Node *Next) { Next_ = Next; }
+
+  // node type related.
+  [[nodiscard]] bool isIntegerTy() const { return Ty_->isInteger(); }
+  [[nodiscard]] bool isPtrTy() const { return Ty_->isPtr(); }
+  [[nodiscard]] Type *getPtrTyBase() { return Ty_->getBase(); }
+  [[nodiscard]] Type *getTy() const { return Ty_; }
   void setTy(Type *Ty) { Ty_ = Ty; }
 
   static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
@@ -366,7 +373,11 @@ private:
  */
 template <typename ET> bool isa(const Node *N) { return ET::isa(N); }
 
-// Generate AST
+// ######################## type information ###################################
+Node::Type *pointerTo(Node::Type *Base);
+void addType(Node *Nd);
+
+// ######################## AST Context ########################################
 class ASTContext {
 public:
   ASTContext() = default;

@@ -23,42 +23,41 @@ void addType(Node *Nd) {
   // TODO: set type for all nodes recursively.
 
   if (isa<BinaryNode>(Nd)) {
-    auto *BNode = dynamic_cast<BinaryNode *>(Nd);
-    switch (BNode->getKind()) {
+    auto &BNode = *dynamic_cast<BinaryNode *>(Nd);
+    switch (BNode.getKind()) {
     case Node::NKind::ND_ADD:
     case Node::NKind::ND_SUB:
     case Node::NKind::ND_MUL:
     case Node::NKind::ND_DIV:
     case Node::NKind::ND_ASSIGN:
-      BNode->setLTy(BNode->getRhsTy());
+      BNode.setLTy(BNode.getRhsTy());
       break;
     case Node::NKind::ND_EQ:
     case Node::NKind::ND_NE:
     case Node::NKind::ND_LT:
     case Node::NKind::ND_LE:
-      BNode->setTy(Node::Type::getIntTy());
+      BNode.setTy(Node::Type::getIntTy());
+    default:
+      break;
     }
     return;
   }
 
   if (isa<UnaryNode>(Nd)) {
-    auto *NN = dynamic_cast<UnaryNode *>(Nd);
-    // TODO:
+    auto &UNode = *dynamic_cast<UnaryNode *>(Nd);
+    auto &RhsNode = *UNode.getRhs();
+    switch (UNode.getKind()) {
+    case Node::NKind::ND_ADDR:
+      UNode.setTy(RhsNode.getTy());
+      break;
+    case Node::NKind::ND_DEREF:
+      UNode.setTy(RhsNode.isPtrTy() ? RhsNode.getPtrTyBase()
+                                    : Node::Type::getIntTy());
+      break;
+    default:
+      break;
+    }
     return;
   }
-
-  if (isa<NumNode>(Nd)) {
-    // TODO:
-    return;
-  }
-
-  if (isa<KeywordNode>(Nd)) {
-    // TODO:
-    return;
-  }
-
-  if (isa<IfCondNode>(Nd)) {
-    // TODO:
-    return;
-  }
+  assert("Cannot handle other type of node.");
 }
