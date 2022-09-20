@@ -13,6 +13,7 @@
 
 class VarObj;
 class Function;
+class Type;
 
 class Node {
 public:
@@ -20,6 +21,33 @@ public:
   enum class NKind {
 #define NODE_INFO(Type, Expr, Desc) ND_##Type,
 #include "node_type.def"
+  };
+
+  enum class TypeSystemKind : unsigned {
+    TY_INT, // int
+    TY_PTR, // pointer
+  };
+
+  class Type {
+  public:
+    explicit Type(TypeSystemKind TyKind = TypeSystemKind::TY_INT,
+                  Type *Base = nullptr)
+        : Kind_(TyKind), Base_(Base) {}
+
+    [[nodiscard]] bool isInteger() const {
+      return Kind_ == TypeSystemKind::TY_INT;
+    }
+    [[nodiscard]] bool isPtr() const { return Kind_ == TypeSystemKind::TY_PTR; }
+    [[nodiscard]] Type *getBase() { return Base_; }
+    [[nodiscard]] Type *getBase() const { return Base_; }
+
+  public:
+    static Type *getIntTy() { return TyInt_; }
+
+  private:
+    TypeSystemKind Kind_; // Kind.
+    Type *Base_;          // the original type which pointer points to.
+    static Type *TyInt_;
   };
 
 public:
@@ -31,21 +59,28 @@ public:
 
 public:
   Node() = delete;	// 不能使用这个ctor
-	explicit Node(Node::NKind Kind, std::string_view Name,
-				  Node *Next = nullptr)
-		: Kind_(Kind), Name_(Name), Next_(Next) {}
+  explicit Node(Node::NKind Kind, std::string_view Name,
+                Node *Next = nullptr)
+      : Kind_(Kind), Name_(Name), Next_(Next), Ty_(Type::getIntTy()) {}
 
-	[[nodiscard]] Node *getNext() { return Next_; }
-	void setNext(Node *Next) { Next_ = Next; }
+  [[nodiscard]] Node *getNext() { return Next_; }
+  void setNext(Node *Next) { Next_ = Next; }
 
-        static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
-        static Node *createKeywordNode(c_syntax::CKType, Node *N1,
-                                       Node *N2 = nullptr, Node *N3 = nullptr,
-                                       Node *N4 = nullptr);
-        static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
-        static Node *createNumNode(int Val);
-        static Node *createVarNode(VarObj *Var);
-        static std::string getTypeName(Node::NKind Kind) {
+  // node type related.
+  [[nodiscard]] bool isIntegerTy() const { return Ty_->isInteger(); }
+  [[nodiscard]] bool isPtrTy() const { return Ty_->isPtr(); }
+  [[nodiscard]] Type *getPtrTyBase() { return Ty_->getBase(); }
+  [[nodiscard]] Type *getTy() const { return Ty_; }
+
+  void setTy(Type *Ty) { Ty_ = Ty; }
+
+  static Node *createUnaryNode(Node::NKind Kind, Node *Nd);
+  static Node *createKeywordNode(c_syntax::CKType, Node *N1, Node *N2 = nullptr,
+                                 Node *N3 = nullptr, Node *N4 = nullptr);
+  static Node *createBinaryNode(Node::NKind Kind, Node *LHS, Node *RHS);
+  static Node *createNumNode(int Val);
+  static Node *createVarNode(VarObj *Var);
+  static std::string getTypeName(Node::NKind Kind) {
 #define NODE_INFO(Type, Expr, Desc)                                            \
   case Node::NKind::ND_##Type:                                                 \
     return Expr;
@@ -56,17 +91,21 @@ public:
       logging::unreachable("unknown node type:", static_cast<uint8_t>(Kind));
       break;
     }
-        }
-        friend class ASTContext;
+  }
+  friend class ASTContext;
 
-      protected:
-        Node *Next_ = nullptr;
+protected:
+  Node *Next_ = nullptr;
 
-      private:
-        Node::NKind Kind_;      // node type.
-        std::string_view Name_; // variable name.
-        int val = 0;
+private:
+  Node::NKind Kind_;      // node type.
+  std::string_view Name_; // variable name.
+  Type *Ty_;
 };
+
+// ########################## type information #################################
+Node::Type *pointerTo(Node::Type *Base);
+void addType(Node *Nd);
 
 class BinaryNode : public Node {
 public:
@@ -76,6 +115,10 @@ public:
 
   [[nodiscard]] Node *getLHS() { return LHS_; }
   [[nodiscard]] Node *getRHS() { return RHS_; }
+  [[nodiscard]] Node::Type *getLhsTy() const { return LHS_->getTy(); }
+  [[nodiscard]] Node::Type *getRhsTy() const { return RHS_->getTy(); }
+  void setLTy(Node::Type *Ty) { LHS_->setTy(Ty); }
+  void setRTy(Node::Type *Ty) { RHS_->setTy(Ty); }
 
   void print(std::ostream &os) const override {
     os << Node::getTypeName(getKind());
@@ -129,26 +172,6 @@ private:
   Node *Rhs_;
 };
 
-// 取反
-class NegNode : public Node {
-public:
-  explicit NegNode(const std::string_view Name, Node *LHS = nullptr)
-      : Node(Node::NKind::ND_NEG, Name), LHS_(LHS) {}
-
-  [[nodiscard]] Node *getLHS() const { return LHS_; }
-  [[nodiscard]] Node *getLHS() { return LHS_; }
-
-  void print(std::ostream &os) const override {
-    os << Node::getTypeName(getKind());
-  }
-
-public:
-  static bool isa(const Node *N) { return N->getKind() == Node::NKind::ND_NEG; }
-
-private:
-  Node *LHS_;
-};
-
 // 数字
 class NumNode : public Node {
 public:
@@ -166,26 +189,6 @@ public:
 
 private:
   int Value_;
-};
-
-// 表达式
-class ExprStmtNode : public Node {
-public:
-  explicit ExprStmtNode(const std::string_view &&Name, Node *Child)
-      : Node(Node::NKind::ND_EXPR_STMT, Name, nullptr), Child_(Child) {}
-
-  [[nodiscard]] Node *getChild() const { return Child_; }
-  void print(std::ostream &os) const override {
-    os << Node::getTypeName(getKind());
-  }
-
-public:
-  static bool isa(const Node *N) {
-    return N->getKind() == Node::NKind::ND_EXPR_STMT;
-  }
-
-private:
-  Node *Child_;
 };
 
 class KeywordNode : public Node {
@@ -240,8 +243,11 @@ public:
   void setElseN(Node *ElseNode) { ElseNode_ = ElseNode; }
 
 public:
-  static bool isa(const KeywordNode *N) {
-    switch (N->getKeywordType()) {
+  static bool isa(const Node *N) {
+    if (KeywordNode::isa(N))
+      return false;
+
+    switch (dynamic_cast<const KeywordNode *>(N)->getKeywordType()) {
     case c_syntax::CKType::CK_IF:
     case c_syntax::CKType::CK_ELSE:
       return true;
@@ -288,27 +294,6 @@ private:
 };
 
 class VarObj; // old variable info class.
-
-class BlockNode : public Node {
-public:
-  explicit BlockNode(Node *Body)
-      : Node(Node::NKind::ND_BLOCK, Node::getTypeName(Node::NKind::ND_BLOCK)),
-        Body_(Body) {}
-
-  Node *getBody() { return Body_; }
-
-  void print(std::ostream &os) const override {
-    os << Node::getTypeName(getKind());
-  }
-
-public:
-  static bool isa(const Node *N) {
-    return N->getKind() == Node::NKind::ND_BLOCK;
-  }
-
-private:
-  Node *Body_;
-};
 
 class VariableNode : public Node {
 public:

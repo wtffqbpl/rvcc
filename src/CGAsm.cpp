@@ -158,21 +158,21 @@ void CodeGenContext::genKeywordCode(KeywordNode *KNode) {
   }
 }
 
-void CodeGenContext::genBlockCode(BlockNode *BN) {
-  for (Node *N = BN->getBody(); N; N = N->getNext())
+void CodeGenContext::genBlockCode(UnaryNode *UN) {
+  for (Node *N = UN->getRhs(); N; N = N->getNext())
     genStmt(N);
 }
 
 void CodeGenContext::genStmt(Node *Nd) {
   switch (Nd->getKind()) {
   case Node::NKind::ND_BLOCK:
-    genBlockCode(dynamic_cast<BlockNode *>(Nd));
+    genBlockCode(dynamic_cast<UnaryNode *>(Nd));
     return;
   case Node::NKind::ND_KEYROWD:
     genKeywordCode(dynamic_cast<KeywordNode *>(Nd));
     return;
   case Node::NKind::ND_EXPR_STMT:
-    genExpr(dynamic_cast<ExprStmtNode *>(Nd)->getChild());
+    genExpr(dynamic_cast<UnaryNode *>(Nd)->getRhs());
     return;
   default:
     break;
@@ -256,8 +256,8 @@ void CodeGenContext::genExpr(Node *Nd) {
     return;
   }
   case Node::NKind::ND_NEG: {
-    auto *Neg = dynamic_cast<NegNode *>(Nd);
-    genExpr(Neg->getLHS());
+    auto *Neg = dynamic_cast<UnaryNode *>(Nd);
+    genExpr(Neg->getRhs());
     // neg a0, a0 是 sub a0, x0 的别名，即 a0 = 0 - a0
     std::cout << "  # a0 取反 \n";
     std::cout << "  neg a0, a0" << std::endl;

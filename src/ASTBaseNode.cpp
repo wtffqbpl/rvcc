@@ -50,14 +50,14 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
   case Node::NKind::ND_NEG:
     // There's only LSH node.
     // C++ 自动向上转型，不需要dynamic_cast
-    CurNd = new NegNode{Node::getTypeName(Kind), Nd};
+    CurNd = new UnaryNode{Kind, Nd};
     break;
   case Node::NKind::ND_EXPR_STMT:
     // There's only Next node.
-    CurNd = new ExprStmtNode{Node::getTypeName(Kind), Nd};
+    CurNd = new UnaryNode{Kind, Nd};
     break;
   case Node::NKind::ND_BLOCK:
-    CurNd = new BlockNode{Nd};
+    CurNd = new UnaryNode{Kind, Nd};
     break;
   case Node::NKind::ND_ADDR:
   case Node::NKind::ND_DEREF:
