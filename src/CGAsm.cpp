@@ -199,7 +199,7 @@ void CodeGenContext::genPrologue(Function *Prog) {
 
   // 偏移量为实际变量所用的 stack 大小
   std::cout << "  # 为程序开辟栈空间\n";
-  std::cout << "  add sp, sp, " << static_cast<int>(-Prog->stackSize())
+  std::cout << "  addi sp, sp, " << static_cast<int>(-Prog->stackSize())
             << std::endl;
 }
 
