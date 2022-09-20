@@ -3,9 +3,9 @@
 //
 
 #include "ASTContext.h"
+#include "../include/c_syntax.h"
 #include "ASTBaseNode.h"
 #include "BasicObjects.h"
-#include "../include/c_syntax.h"
 #include "rvcc.h"
 #include "tokenize.h"
 #include <cassert>
@@ -86,11 +86,10 @@ Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
 Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
   // 1. "return expr" ";"
   if (isa<KeywordToken>(Tok) &&
-      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
        c_syntax::CKType::CK_RETURN)) {
-    Node *Nd = 
-        Node::createKeywordNode(c_syntax::CKType::CK_RETURN, 
-                                createExpr(&Tok, Tok->next()));
+    Node *Nd = Node::createKeywordNode(c_syntax::CKType::CK_RETURN,
+                                       createExpr(&Tok, Tok->next()));
 
     *Rest = skipPunct(Tok, ";");
     return Nd;
@@ -98,8 +97,8 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
 
   // 2. parse if-else statment
   // "if " "(" expr ")" stmt "else" stmt
-  if (isa<KeywordToken>(Tok) && 
-      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
+  if (isa<KeywordToken>(Tok) &&
+      (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
        c_syntax::CKType::CK_IF)) {
     KeywordToken *KT = dynamic_cast<KeywordToken *>(Tok);
     IfCondNode *Nd = dynamic_cast<IfCondNode *>(
@@ -113,9 +112,9 @@ Node *ASTContext::createStmt(Token **Rest, Token *Tok) {
     Nd->setBody(createStmt(&Tok, Tok));
 
     // "else" not match condition.
-    if (isa<KeywordToken>(Tok) && 
-        (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() == 
-        c_syntax::CKType::CK_ELSE)) {
+    if (isa<KeywordToken>(Tok) &&
+        (dynamic_cast<KeywordToken *>(Tok)->getKeywordType() ==
+         c_syntax::CKType::CK_ELSE)) {
       Nd->setElseN(createStmt(&Tok, Tok->next()));
     }
 
@@ -196,8 +195,8 @@ Node *ASTContext::createExprStmt(Token **Rest, Token *Tok) {
     return new BlockNode{nullptr};
   }
   // expr ";"
-  Node *Nd = Node::createUnaryNode(Node::NKind::ND_EXPR_STMT,
-                                   createExpr(&Tok, Tok));
+  Node *Nd =
+      Node::createUnaryNode(Node::NKind::ND_EXPR_STMT, createExpr(&Tok, Tok));
   *Rest = skipPunct(Tok, ";");
   return Nd;
 }
@@ -392,6 +391,18 @@ Node *ASTContext::createUnaryExpr(Token **Rest, Token *Tok) {
   if (isa<PunctToken>(Tok) &&
       equal(dynamic_cast<PunctToken *>(Tok)->getName(), "-"))
     return Node::createUnaryNode(Node::NKind::ND_NEG,
+                                 createUnaryExpr(Rest, Tok->next()));
+
+  // "&" address.
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "&"))
+    return Node::createUnaryNode(Node::NKind::ND_ADDR,
+                                 createUnaryExpr(Rest, Tok->next()));
+
+  // "*" de-reference.
+  if (isa<PunctToken>(Tok) &&
+      equal(dynamic_cast<PunctToken *>(Tok)->getName(), "*"))
+    return Node::createUnaryNode(Node::NKind::ND_DEREF,
                                  createUnaryExpr(Rest, Tok->next()));
 
   // primary

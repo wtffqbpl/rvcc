@@ -224,7 +224,8 @@ void CodeGenContext::genEpilogue() {
 }
 
 void CodeGenContext::genAddr(Node *Nd) {
-  if (isa<VariableNode>(Nd)) {
+  switch (Nd->getKind()) {
+  case Node::NKind::ND_VAR: {
     auto *Var = dynamic_cast<VariableNode *>(Nd);
     // 偏移量为相对于 fp 的
     std::cout << "  # 获取变量 " << Var->getObj().name() << "的栈地址："
@@ -232,6 +233,13 @@ void CodeGenContext::genAddr(Node *Nd) {
     std::cout << "  addi a0, fp, " << static_cast<int>(Var->getObj().offset())
               << std::endl;
     return;
+  }
+  case Node::NKind::ND_DEREF: {
+    genExpr(dynamic_cast<UnaryNode *>(Nd)->getRhs());
+    return;
+  }
+  default:
+    break;
   }
 
   logging::error("not an lvalue");
@@ -275,6 +283,14 @@ void CodeGenContext::genExpr(Node *Nd) {
     std::cout << "  sd a0, 0(a1)" << std::endl;
     return;
   }
+  case Node::NKind::ND_DEREF:
+    genExpr(dynamic_cast<UnaryNode *>(Nd)->getRhs());
+    std::cout << "  # 读取a0 中存放的地址，然后把值再次存入a0\n";
+    std::cout << "  ld a0, 0(a0)" << std::endl;
+    return;
+  case Node::NKind::ND_ADDR:
+    genAddr(dynamic_cast<UnaryNode *>(Nd)->getRhs());
+    return;
   default:
     break;
   }

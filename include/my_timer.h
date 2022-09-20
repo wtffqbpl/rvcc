@@ -5,7 +5,6 @@
 #ifndef RVCC_MY_TIMER_H
 #define RVCC_MY_TIMER_H
 
-
 #include <chrono>
 #include <iostream>
 #include <string_view>
@@ -31,5 +30,4 @@ private:
   std::chrono::high_resolution_clock::time_point Start_;
 };
 
-
-#endif //RVCC_MY_TIMER_H
+#endif // RVCC_MY_TIMER_H

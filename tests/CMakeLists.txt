@@ -76,3 +76,12 @@ add_test(NAME for_2 COMMAND rvcc "{ for (;;) {return 3;} return 5; }")
 
 # [17] support while statement.
 add_test(NAME while_1 COMMAND rvcc "{ i=0; while(i<10) { i=i+1; } return i; }")
+
+# [18] support unary operator & * (acquire address de de-reference address)
+add_test(NAME addr_op_1 COMMAND rvcc "{ x=3; return *&x; }")
+add_test(NAME addr_op_2 COMMAND rvcc "{ x=3; y=&x; z=&y; return **z; }")
+add_test(NAME addr_op_3 COMMAND rvcc "{ x=3; y=5; return *(&x+8); }")
+add_test(NAME addr_op_4 COMMAND rvcc "{ x=3; y=5; return *(&y-8); }")
+add_test(NAME addr_op_5 COMMAND rvcc "{ x=3; y=&x; *y=5; return x; }")
+add_test(NAME addr_op_6 COMMAND rvcc "{ x=3; y=5; *(&x+8)=7; return y; }")
+add_test(NAME addr_op_7 COMMAND rvcc "{ x=3; y=5; *(&y-8)=7; return x; }")

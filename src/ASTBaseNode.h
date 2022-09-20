@@ -100,6 +100,35 @@ private:
   Node *RHS_;
 };
 
+class UnaryNode : public Node {
+public:
+  explicit UnaryNode(Node::NKind Kind, Node *Rhs = nullptr)
+      : Node(Kind, Node::getTypeName(Kind)), Rhs_(Rhs) {}
+
+  [[nodiscard]] Node *getRhs() const { return Rhs_; }
+
+  void print(std::ostream &os) const override {
+    os << Node::getTypeName(getKind());
+  }
+
+public:
+  static bool isa(const Node *N) {
+#define UNARY_NODE_INFO(Keyword, Expr, Desc)                                   \
+  case Node::NKind::ND_##Keyword:                                              \
+    return true;
+
+    switch (N->getKind()) {
+#include "node_type.def"
+    default:
+      break;
+    }
+    return false;
+  }
+
+private:
+  Node *Rhs_;
+};
+
 // 取反
 class NegNode : public Node {
 public:

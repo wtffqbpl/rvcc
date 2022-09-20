@@ -41,4 +41,4 @@ private:
   std::list<VarObj *> Locals_list; // TODO: using this for local variables.
 };
 
-#endif //RVCC_BASICOBJECTS_H
+#endif // RVCC_BASICOBJECTS_H

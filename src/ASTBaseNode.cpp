@@ -59,6 +59,10 @@ Node *Node::createUnaryNode(Node::NKind Kind, Node *Nd) {
   case Node::NKind::ND_BLOCK:
     CurNd = new BlockNode{Nd};
     break;
+  case Node::NKind::ND_ADDR:
+  case Node::NKind::ND_DEREF:
+    CurNd = new UnaryNode{Kind, Nd};
+    break;
   default:
     logging::error("Cannot handle this type of node: ",
                    static_cast<unsigned>(Kind));

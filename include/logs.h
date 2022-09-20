@@ -61,4 +61,4 @@ static void info_internal(T FirstArg, Types... Lefts) {
 
 } // end of namespace logging.
 
-#endif //RVCC_LOGS_H
+#endif // RVCC_LOGS_H
