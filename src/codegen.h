@@ -30,12 +30,12 @@ public:
   static CodeGenContext &instance();
 
 private:
-  void genStmt(Node *Nd);
+  void genStmt(Node *node);
   void genKeywordCode(KeywordNode *Keyword);
   void genBlockCode(UnaryNode *BN);
   void genExpr(Node *Nd);
   void genAddr(Node *Nd);
-  void genPrologue(Function *Prog);
+  void genPrologue(Function &Prog);
   void genEpilogue();
   void push();
   void pop(const std::string &Reg);

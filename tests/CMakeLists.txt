@@ -91,3 +91,6 @@ add_test(NAME pointer_arithmetic_op_1 COMMAND rvcc "{ x=3; y=5; return *(&y-1); 
 add_test(NAME pointer_arithmetic_op_2 COMMAND rvcc "{ x=3; y=5; return *(&x+1); }")
 add_test(NAME pointer_arithmetic_op_3 COMMAND rvcc "{ x=3; y=5; *(&y-1)=7; return x; }")
 add_test(NAME pointer_arithmetic_op_4 COMMAND rvcc "{ x=3; y=5; *(&x+1)=7; return y; }")
+
+# [22] support int keyword.
+# add_test(NAME int_keyword COMMAND rvcc "{int x=1,*y=&x; *y;}")

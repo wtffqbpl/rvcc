@@ -3,6 +3,7 @@
 
 #include "c_syntax.h"
 #include <iostream>
+#include <list>
 #include <map>
 #include <string_view>
 
@@ -37,19 +38,18 @@ protected:
   virtual void print(std::ostream &os) {}
 
 protected:
-  TKind Kind_;            // kind
-  Token *Next_ = nullptr; // next token
-  size_t Len_;            // length
+  TKind Kind_ = TKind::TK_EOF; // kind
+  Token *Next_ = nullptr;      // next token
+  size_t Len_ = 0;             // length
 };
 
 class KeywordToken : public Token {
 public:
-  explicit KeywordToken(const std::string_view &&Keyword)
-      : Token(TKind::TK_KEYWORD, nullptr, Keyword.size()), Keyword_(Keyword),
+  explicit KeywordToken(std::string Keyword)
+      : Token(TKind::TK_KEYWORD, nullptr, Keyword.size()),
+        Keyword_(std::move(Keyword)),
         KeywordType_(getKeywordTypeByName(Keyword_)) {}
-  [[nodiscard]] const std::string_view &getKeywordName() const {
-    return Keyword_;
-  }
+  [[nodiscard]] std::string_view getKeywordName() const { return Keyword_; }
 
 public:
   static bool isa(const Token *V) { return V->getKind() == TKind::TK_KEYWORD; }
@@ -69,7 +69,7 @@ private:
 private:
   // @brief for token parse: string -> keyword type
   static std::map<const std::string_view, c_syntax::CKType> StrKeywordMap_;
-  const std::string_view Keyword_;
+  const std::string Keyword_;
   c_syntax::CKType KeywordType_;
 };
 
@@ -93,10 +93,11 @@ private:
 
 class PunctToken : public Token {
 public:
-  explicit PunctToken(const std::string_view &&Name)
-      : Token(Token::TKind::TK_PUNCT, nullptr, Name.size()), Name_(Name) {}
+  explicit PunctToken(std::string Name)
+      : Token(Token::TKind::TK_PUNCT, nullptr, Name.size()),
+        Name_(std::move(Name)) {}
 
-  [[nodiscard]] const std::string_view &getName() { return Name_; }
+  [[nodiscard]] std::string_view getName() { return Name_; }
 
   void print(std::ostream &os) override { os << ", {SIGN, " << Name_ << "}"; }
 
@@ -106,13 +107,14 @@ public:
   }
 
 private:
-  const std::string_view Name_;
+  const std::string Name_;
 };
 
 class IndentToken : public Token {
 public:
-  explicit IndentToken(const std::string_view &&Name)
-      : Token(Token::TKind::TK_IDENT, nullptr, Name.size()), Name_(Name) {}
+  explicit IndentToken(std::string Name)
+      : Token(Token::TKind::TK_IDENT, nullptr, Name.size()),
+        Name_(std::move(Name)) {}
 
   [[nodiscard]] std::string_view getName() const { return Name_; }
 
@@ -124,7 +126,7 @@ public:
   }
 
 private:
-  const std::string_view Name_;
+  const std::string Name_;
 };
 
 class EOFToken : public Token {
@@ -148,7 +150,8 @@ private:
                 std::string::iterator end);
 
 private:
-  std::string SourceCode_;
+  std::string source_code_;
+  std::list<Token *> tokens_;
 };
 
 //############################### Some Utils. #################################

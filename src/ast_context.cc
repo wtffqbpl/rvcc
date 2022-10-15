@@ -8,13 +8,6 @@
 // 在解析时，全部的变量实例都被累加到这个列表中。
 static Obj *Locals = nullptr;
 
-static Obj *findVar(IndentToken *Tok) {
-  for (Obj *Var = Locals; Var; Var = Var->next())
-    if (Var->name() == Tok->getName())
-      return Var;
-  return nullptr;
-}
-
 KeywordNode::KeywordNode(c_syntax::CKType KeywordType, Node *Body)
     : Node(NKind::ND_KEYROWD, getTypeName(NKind::ND_KEYROWD), nullptr),
       BodyNode_(Body) {
@@ -96,12 +89,6 @@ Node *Node::createNumNode(int Val) {
 
 Node *Node::createVarNode(Obj *Var) { return new VariableNode{Var}; }
 
-static Obj *newLVar(std::string_view Name) {
-  Obj *Var = new Obj{Name, Locals};
-  Locals = Var;
-  return Var;
-}
-
 void Node::dump(unsigned Depth) {
   // info indent.
   for (unsigned i = 0; i < Depth; ++i)
@@ -110,20 +97,6 @@ void Node::dump(unsigned Depth) {
   std::cout << "{TYPE, " << Node::getTypeName(Kind_) << "}";
   ++Depth;
   std::cout << std::endl;
-
-#if 0
-  // children
-  if (LHS) LHS->dump(Depth);
-  if (RHS) RHS->dump(Depth);
-
-  if (Next != nullptr)
-    Next->dump(--Depth);
-#endif
-}
-
-ASTContext &ASTContext::instance() {
-  static ASTContext astContext;
-  return astContext;
 }
 
 static bool equal(std::string_view Name, std::string_view Str) {
@@ -147,11 +120,9 @@ Function *ASTContext::create(Token *Tok) {
   // skip "{"
   Tok = Tok->next();
 
-  auto *Prog = new Function;
-  Prog->setBody(compoundStmt(&Tok, Tok));
-  Prog->setLocals(Locals);
+  Prog_.setBody(compoundStmt(&Tok, Tok));
 
-  return Prog;
+  return &Prog_;
 }
 
 Node *ASTContext::compoundStmt(Token **Rest, Token *Tok) {
@@ -557,11 +528,16 @@ Node *ASTContext::createPrimaryExpr(Token **Rest, Token *Tok) {
   if (isa<IndentToken>(Tok)) {
     auto *IdentTok = dynamic_cast<IndentToken *>(Tok);
     std::string_view VarName = IdentTok->getName();
-    Obj *Var = findVar(IdentTok);
-    if (!Var)
-      Var = newLVar(VarName);
+    auto Var = std::find_if(Prog_.var_begin(), Prog_.var_end(),
+                            [&IdentTok](const auto &var) {
+                              return var->name() == IdentTok->getName();
+                            });
+    if (Var == Prog_.var_end()) {
+      Prog_.addLocals(new Obj{std::string(VarName)});
+      Var = std::prev(Prog_.var_end());
+    }
     *Rest = IdentTok->next();
-    return Node::createVarNode(Var);
+    return Node::createVarNode(*Var);
   }
 
   logging::error("Expected an expression");

@@ -7,8 +7,11 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 class Token;
+class TokenContext;
 class Obj;
 class Function;
 class Type;
@@ -37,7 +40,6 @@ public:
     }
     [[nodiscard]] bool isPtr() const { return Kind_ == TypeSystemKind::TY_PTR; }
     [[nodiscard]] Type *getBase() { return Base_; }
-    [[nodiscard]] Type *getBase() const { return Base_; }
 
   public:
     static Type *getIntTy() { return TyInt_; }
@@ -59,8 +61,7 @@ public:
 
 public:
   Node() = delete;
-  explicit Node(Node::NKind Kind, const std::string_view &Name,
-                Node *Next = nullptr)
+  explicit Node(Node::NKind Kind, const std::string &Name, Node *Next = nullptr)
       : Kind_(Kind), Name_(Name), Next_(Next), Ty_(Type::getIntTy()) {}
 
   [[nodiscard]] Node *getNext() { return Next_; }
@@ -104,13 +105,13 @@ protected:
 
 private:
   Node::NKind Kind_;             // node type.
-  const std::string_view &Name_; // variable name.
+  const std::string &Name_;      // variable name.
   Type *Ty_;
 };
 
 class BinaryNode : public Node {
 public:
-  explicit BinaryNode(Node::NKind Kind, const std::string_view &Name, Node *LHS,
+  explicit BinaryNode(Node::NKind Kind, const std::string &Name, Node *LHS,
                       Node *RHS)
       : Node(Kind, Name), LHS_(LHS), RHS_(RHS) {}
 
@@ -175,7 +176,7 @@ private:
 
 class NumNode : public Node {
 public:
-  explicit NumNode(const std::string_view &Name, int Value)
+  explicit NumNode(const std::string &Name, int Value)
       : Node(Node::NKind::ND_NUM, Name), Value_(Value) {}
 
   [[nodiscard]] int getValue() const { return Value_; }
@@ -195,7 +196,7 @@ class KeywordNode : public Node {
 public:
   explicit KeywordNode(c_syntax::CKType KeywordType, Node *L);
 
-  [[nodiscard]] std::string_view getKeywordName() const { return KeywordName_; }
+  [[nodiscard]] std::string getKeywordName() const { return KeywordName_; }
   [[nodiscard]] Node *getBody() const { return BodyNode_; }
   [[nodiscard]] c_syntax::CKType getKeywordType() const { return KeywordType_; }
   void setBody(Node *Body) { BodyNode_ = Body; }
@@ -212,7 +213,7 @@ public:
 private:
   Node *BodyNode_;
   c_syntax::CKType KeywordType_;
-  std::string_view KeywordName_;
+  std::string KeywordName_;
 };
 
 /*
@@ -301,17 +302,14 @@ private:
 // Local variable
 class Obj {
 public:
-  explicit Obj(const std::string_view Name, Obj *Next)
-      : Name_(Name), Next_(Next), Offset_(0) {}
+  explicit Obj(std::string Name) : Name_(std::move(Name)), Offset_(0) {}
 
-  [[nodiscard]] Obj *next() { return Next_; }
   [[nodiscard]] std::string_view name() const { return Name_; }
   [[nodiscard]] int offset() const { return Offset_; }
   void setOffset(int Offset) { Offset_ = Offset; }
 
 private:
-  Obj *Next_;                   // next obj.
-  const std::string_view Name_; // variable name. TODO: Using string_view
+  const std::string Name_;      // variable name.
   int Offset_;                  // fp offset.
 };
 
@@ -325,7 +323,7 @@ public:
    */
   struct VarInfo {
     VarInfo *Next = nullptr;
-    std::string_view Name;
+    std::string Name;
     unsigned FrameIdx = 0;
   };
 
@@ -352,19 +350,20 @@ private:
 class Function {
 public:
   [[nodiscard]] Node *body() { return Body; }
-  [[nodiscard]] Obj *locals() const { return Locals; }
   [[nodiscard]] unsigned stackSize() const { return StackSize; }
 
   void setBody(Node *Body_) { Body = Body_; }
-  void setLocals(Obj *Locals_) { Locals = Locals_; }
   void setStackSize(int StkSize) { StackSize = StkSize; }
+  void addLocals(Obj *LocalVar) { Locals_list_.emplace_back(LocalVar); }
+
+  using LocalsIter = std::vector<Obj *>::iterator;
+  [[nodiscard]] LocalsIter var_begin() { return Locals_list_.begin(); }
+  [[nodiscard]] LocalsIter var_end() { return Locals_list_.end(); }
 
 private:
   Node *Body = nullptr;     // Function body.
-  Obj *Locals = nullptr;    // Local variables.
   int StackSize = 0;        // Stack size.
-  std::list<Node *> Body_list;  // TODO: using bi-list
-  std::list<Obj *> Locals_list; // TODO: using this for local variables.
+  std::vector<Obj *> Locals_list_;
 };
 
 //############################### Some Utils. #################################
@@ -381,9 +380,6 @@ void addType(Node *Nd);
 class ASTContext {
 public:
   ASTContext() = default;
-
-  static ASTContext &instance();
-
   // BNF:
   //    这样来构建，可以保证优先级没有问题, 越往下，优先级越高
   //    program = "{" compoundStmt // 表示程序是由多个statements(语句)来构成的
@@ -416,6 +412,9 @@ private:
   Node *createMulExpr(Token **Rest, Token *Tok);
   Node *createUnaryExpr(Token **Rest, Token *Tok);
   Node *createPrimaryExpr(Token **Rest, Token *Tok);
+
+private:
+  Function Prog_{};
 };
 
 #endif // SRC_AST_CONTEXT_H

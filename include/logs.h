@@ -5,14 +5,11 @@
 
 namespace logging {
 
-template <typename T> void print(T Val) { std::cout << Val << " "; }
-
-template <typename T, typename... Types>
-void print(T FirstArg, Types... Lefts) {
-  print(FirstArg);
-  print(Lefts...);
+template <typename... Types> void print(Types... args) {
+  (std::cout << ... << args) << '\n';
 }
 
+// Fold expression [since c++17]
 template <typename T, typename... Types>
 void error_internal(T FirstArg, Types... Lefts) {
   std::cout << "[ERROR] ";

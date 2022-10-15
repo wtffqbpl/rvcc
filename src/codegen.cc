@@ -26,22 +26,24 @@ void CodeGenContext::pop(const std::string &Reg) {
   --Depth;
 }
 
-static void assignLVarOffsets(Function *Prog) {
+static void assignLVarOffsets(Function &Prog) {
   int Offset = 0;
 
-  for (Obj *Var = Prog->locals(); Var; Var = Var->next()) {
+  for (auto VarI = Prog.var_begin(), End = Prog.var_end(); VarI != End;
+       ++VarI) {
+    auto &Var = **VarI;
     // 每个变量分配 8 bytes, 即在stack 中存放变量的地址
     Offset += 8;
-    Var->setOffset(-Offset);
+    Var.setOffset(-Offset);
   }
 
   // 将 stack 对齐到 16 bytes
-  Prog->setStackSize(alignTo(Offset, 16));
+  Prog.setStackSize(alignTo(Offset, 16));
 }
 
 void CodeGenContext::codegen(Function *Prog) {
-  assignLVarOffsets(Prog);
-  genPrologue(Prog);
+  assignLVarOffsets(*Prog);
+  genPrologue(*Prog);
 
   std::cout << "\n# =====程序主体===============\n";
   genStmt(Prog->body());
@@ -93,7 +95,7 @@ void CodeGenContext::genKeywordCode(KeywordNode *KNode) {
     break;
   }
   case c_syntax::CKType::CK_FOR: {
-    ForLoopNode *ForNode = dynamic_cast<ForLoopNode *>(KNode);
+    auto *ForNode = dynamic_cast<ForLoopNode *>(KNode);
     unsigned C = ForLoopNode::getCount();
     std::cout << "\n# =====循环语句%d===============\n";
     // generate for header. Note: while loop hasn't header body, so skip it.
@@ -140,16 +142,16 @@ void CodeGenContext::genBlockCode(UnaryNode *BN) {
     genStmt(N);
 }
 
-void CodeGenContext::genStmt(Node *Nd) {
-  switch (Nd->getKind()) {
+void CodeGenContext::genStmt(Node *node) {
+  switch (node->getKind()) {
   case Node::NKind::ND_BLOCK:
-    genBlockCode(dynamic_cast<UnaryNode *>(Nd));
+    genBlockCode(dynamic_cast<UnaryNode *>(node));
     return;
   case Node::NKind::ND_KEYROWD:
-    genKeywordCode(dynamic_cast<KeywordNode *>(Nd));
+    genKeywordCode(dynamic_cast<KeywordNode *>(node));
     return;
   case Node::NKind::ND_EXPR_STMT:
-    genExpr(dynamic_cast<UnaryNode *>(Nd)->getRhs());
+    genExpr(dynamic_cast<UnaryNode *>(node)->getRhs());
     return;
   default:
     break;
@@ -158,7 +160,7 @@ void CodeGenContext::genStmt(Node *Nd) {
   logging::error("invalid statement");
 }
 
-void CodeGenContext::genPrologue(Function *Prog) {
+void CodeGenContext::genPrologue(Function &Prog) {
   std::cout << "# 定义全局main段\n";
   std::cout << ".globl main" << std::endl;
   std::cout << "\n# =====程序开始===============\n";
@@ -174,7 +176,7 @@ void CodeGenContext::genPrologue(Function *Prog) {
 
   // 偏移量为实际变量所用的 stack 大小
   std::cout << "  # sp腾出StackSize大小的栈空间\n";
-  std::cout << "  addi sp, sp, " << static_cast<int>(-Prog->stackSize())
+  std::cout << "  addi sp, sp, " << static_cast<int>(-Prog.stackSize())
             << std::endl;
 }
 

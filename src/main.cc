@@ -73,26 +73,19 @@ int main(int argc, char **argv) {
   inputArgsCheck(argc, argv);
 
   // generate tokens.
-  Token *Tok;
-  {
-    // std::string input = getSourceCode();
-    std::string input{argv[1]};
-    logging::Timer TokenizeTmr{"Tokenize"};
-    Tok = TokenContext::instance().tokenize(std::move(input));
-  }
+  // std::string input = getSourceCode();
+  std::string input{argv[1]};
+
+  Token *tok = TokenContext().tokenize(std::move(input));
+  assert(tok != nullptr);
 
   // construct ast tree.
-  Function *Prog;
-  {
-    logging::Timer ASTTmr{"AST Construction"};
-    Prog = ASTContext::instance().create(Tok);
-  }
+  ASTContext ast_ctx{};
+  auto *prog = ast_ctx.create(tok);
+  assert(prog != nullptr);
 
   // code generation.
-  {
-    logging::Timer CodegenTmr{"Code generation"};
-    CodeGenContext::instance().codegen(Prog);
-  }
+  CodeGenContext::instance().codegen(prog);
 
   return 0;
 }

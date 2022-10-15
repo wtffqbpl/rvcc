@@ -88,29 +88,29 @@ TokenContext &TokenContext::instance() {
 Token *TokenContext::create(Token::TKind Kind, std::string::iterator Start,
                             std::string::iterator End) {
   std::string_view::size_type Len = std::distance(Start, End);
-  auto Offset = std::distance(SourceCode_.begin(), Start);
+  auto Offset = std::distance(source_code_.begin(), Start);
 
   Token *Tok = nullptr;
   switch (Kind) {
   case Token::TKind::TK_NUM: {
-    auto Val = std::stoi(SourceCode_.substr(Offset, Len));
-    Tok = new NumToken{Val, static_cast<size_t>(Len)};
-    break;
+      auto Val = std::stoi(source_code_.substr(Offset, Len));
+      Tok = new NumToken{Val, static_cast<size_t>(Len)};
+      break;
   }
   case Token::TKind::TK_PUNCT: {
-    std::string_view Name{SourceCode_.data() + Offset, Len};
-    Tok = new PunctToken{std::move(Name)};
-    break;
+      std::string Name{source_code_.data() + Offset, Len};
+      Tok = new PunctToken{Name};
+      break;
   }
   case Token::TKind::TK_IDENT: {
-    std::string_view Name{SourceCode_.data() + Offset, Len};
-    Tok = new IndentToken{std::move(Name)};
-    break;
+      std::string Name{source_code_.data() + Offset, Len};
+      Tok = new IndentToken{Name};
+      break;
   }
   case Token::TKind::TK_KEYWORD: {
-    std::string_view Name{SourceCode_.data() + Offset, Len};
-    Tok = new KeywordToken{std::move(Name)};
-    break;
+      std::string Name{source_code_.data() + Offset, Len};
+      Tok = new KeywordToken{Name};
+      break;
   }
   case Token::TKind::TK_EOF:
     Tok = new EOFToken{};
@@ -136,12 +136,12 @@ static std::string::iterator getNumber(std::string &input,
 
 Token *TokenContext::tokenize(std::string &&input) {
   // record source code in static TokenContext class.
-  SourceCode_ = input;
+  source_code_ = input;
   Token Head{};
   Token *Cur = &Head;
 
-  auto It = SourceCode_.begin();
-  for (auto End = SourceCode_.end(); It != End;) {
+  auto It = source_code_.begin();
+  for (auto End = source_code_.end(); It != End;) {
     auto achar = *It;
 
     // skip spaces.
@@ -152,8 +152,11 @@ Token *TokenContext::tokenize(std::string &&input) {
 
     // parse number.
     if (std::isdigit(achar)) {
-      auto NumEndPos = getNumber(SourceCode_, It);
-      Cur->setNext(create(Token::TKind::TK_NUM, It, NumEndPos));
+      auto NumEndPos = getNumber(source_code_, It);
+      auto *Tok = create(Token::TKind::TK_NUM, It, NumEndPos);
+      Cur->setNext(Tok);
+      tokens_.emplace_back(Tok);
+
       Cur = Cur->next();
       It += Cur->getLength();
       continue;
@@ -166,23 +169,31 @@ Token *TokenContext::tokenize(std::string &&input) {
       } while (isValidIndent2(*It));
 
       std::string VarName =
-          SourceCode_.substr(std::distance(SourceCode_.begin(), StartPt),
-                             std::distance(StartPt, It));
-      if (KeywordToken::isKeyword(VarName))
-        Cur->setNext(create(Token::TKind::TK_KEYWORD, StartPt, It));
-      else
-        Cur->setNext(create(Token::TKind::TK_IDENT, StartPt, It));
+          source_code_.substr(std::distance(source_code_.begin(), StartPt),
+                              std::distance(StartPt, It));
+      if (KeywordToken::isKeyword(VarName)) {
+        auto *Tok = create(Token::TKind::TK_KEYWORD, StartPt, It);
+        Cur->setNext(Tok);
+        tokens_.emplace_back(Tok);
+      } else {
+        auto *Tok = create(Token::TKind::TK_IDENT, StartPt, It);
+        Cur->setNext(Tok);
+        tokens_.emplace_back(Tok);
+      }
       Cur = Cur->next();
       continue;
     }
 
     // parse operators.
     int PunctLen =
-        readPunct(SourceCode_, std::distance(SourceCode_.begin(), It));
+        readPunct(source_code_, std::distance(source_code_.begin(), It));
     if (PunctLen) {
-      Cur->setNext(create(Token::TKind::TK_PUNCT, It, It + PunctLen));
+      auto *Tok = create(Token::TKind::TK_PUNCT, It, It + PunctLen);
+      Cur->setNext(Tok);
       Cur = Cur->next();
       It += PunctLen;
+
+      tokens_.emplace_back(Tok);
       continue;
     }
 
@@ -191,7 +202,11 @@ Token *TokenContext::tokenize(std::string &&input) {
   }
 
   // Add EOF operator.
-  Cur->setNext(create(Token::TKind::TK_EOF, It, It));
+  {
+    auto *Tok = create(Token::TKind::TK_EOF, It, It);
+    Cur->setNext(Tok);
+    tokens_.emplace_back(Tok);
+  }
 
   return Head.next();
 }
